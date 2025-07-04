@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中商浏览器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .browser-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: #fff;
+        }
+
+        .browser-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .browser-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .nav-button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .nav-button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .url-bar {
+            flex: 1;
+            margin: 0 12px;
+            position: relative;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.9);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .url-input:focus {
+            background: white;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+        }
+
+        .browser-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .browser-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: #e9ecef;
+            border-right: 1px solid #dee2e6;
+            cursor: pointer;
+            min-width: 120px;
+            max-width: 200px;
+            position: relative;
+        }
+
+        .tab.active {
+            background: white;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            color: #495057;
+        }
+
+        .tab-close {
+            margin-left: 8px;
+            width: 16px;
+            height: 16px;
+            border: none;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-close:hover {
+            background: #c82333;
+        }
+
+        .new-tab {
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .new-tab:hover {
+            color: #495057;
+        }
+
+        .webview-container {
+            flex: 1;
+            position: relative;
+            background: white;
+        }
+
+        .webview {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            padding: 4px 12px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .status-text {
+            flex: 1;
+        }
+
+        .security-indicator {
+            margin-left: 12px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .security-secure {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .security-insecure {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #6c757d;
+            z-index: 50;
+        }
+
+        .error-message h3 {
+            margin-bottom: 12px;
+            color: #495057;
+        }
+
+        .error-message button {
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .error-message button:hover {
+            background: #5a6fd8;
+        }
+    </style>
+</head>
+<body>
+    <div class="browser-container">
+        <!-- 浏览器头部 -->
+        <div class="browser-header">
+            <div class="browser-controls">
+                <button class="nav-button" id="backBtn" title="后退">←</button>
+                <button class="nav-button" id="forwardBtn" title="前进">→</button>
+                <button class="nav-button" id="refreshBtn" title="刷新">↻</button>
+                <button class="nav-button" id="homeBtn" title="主页">🏠</button>
+            </div>
+            
+            <div class="url-bar">
+                <input type="text" class="url-input" id="urlInput" placeholder="输入网址或搜索内容...">
+            </div>
+        </div>
+
+        <!-- 标签页 -->
+        <div class="browser-tabs" id="tabsContainer">
+            <div class="tab active" data-tab-id="tab1">
+                <span class="tab-title">新标签页</span>
+                <button class="tab-close" title="关闭标签页">×</button>
+            </div>
+            <button class="new-tab" id="newTabBtn" title="新建标签页">+</button>
+        </div>
+
+        <!-- 网页内容区域 -->
+        <div class="webview-container">
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+            </div>
+            
+            <webview id="webview1" class="webview" src="about:blank" 
+                     partition="persist:browser" 
+                     webpreferences="javascript=yes, contextIsolation=yes" 
+                     allowpopups 
+                     useragent="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36">
+            </webview>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="status-text" id="statusText">就绪</div>
+            <div class="security-indicator" id="securityIndicator"></div>
+        </div>
+    </div>
+
+    <script>
+        class BrowserManager {
+            constructor() {
+                this.tabs = new Map();
+                this.activeTabId = 'tab1';
+                this.tabCounter = 1;
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.createTab('tab1', 'about:blank', '新标签页');
+            }
+
+            bindEvents() {
+                // 导航按钮
+                document.getElementById('backBtn').addEventListener('click', () => this.goBack());
+                document.getElementById('forwardBtn').addEventListener('click', () => this.goForward());
+                document.getElementById('refreshBtn').addEventListener('click', () => this.refresh());
+                document.getElementById('homeBtn').addEventListener('click', () => this.goHome());
+
+                // URL 输入框
+                document.getElementById('urlInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.navigateToUrl(e.target.value);
+                    }
+                });
+
+                // 新建标签页
+                document.getElementById('newTabBtn').addEventListener('click', () => this.createNewTab());
+
+                // 标签页事件委托
+                document.getElementById('tabsContainer').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('tab')) {
+                        this.switchTab(e.target.dataset.tabId);
+                    } else if (e.target.classList.contains('tab-close')) {
+                        this.closeTab(e.target.parentElement.dataset.tabId);
+                    }
+                });
+            }
+
+            createTab(tabId, url, title) {
+                const webview = document.getElementById(`webview${tabId.replace('tab', '')}`);
+                if (!webview) return;
+
+                this.tabs.set(tabId, {
+                    id: tabId,
+                    url: url,
+                    title: title,
+                    webview: webview
+                });
+
+                this.setupWebviewEvents(webview, tabId);
+                this.updateTabTitle(tabId, title);
+            }
+
+            createNewTab() {
+                this.tabCounter++;
+                const tabId = `tab${this.tabCounter}`;
+                
+                // 创建新的 webview
+                const webviewContainer = document.querySelector('.webview-container');
+                const webview = document.createElement('webview');
+                webview.id = `webview${this.tabCounter}`;
+                webview.className = 'webview';
+                webview.src = 'about:blank';
+                webview.partition = 'persist:browser';
+                webview.webpreferences = 'javascript=yes, contextIsolation=yes';
+                webview.allowpopups = true;
+                webview.useragent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+                webview.style.display = 'none';
+                
+                webviewContainer.appendChild(webview);
+
+                // 创建标签页
+                const tabsContainer = document.getElementById('tabsContainer');
+                const newTabBtn = document.getElementById('newTabBtn');
+                const tab = document.createElement('div');
+                tab.className = 'tab';
+                tab.dataset.tabId = tabId;
+                tab.innerHTML = `
+                    <span class="tab-title">新标签页</span>
+                    <button class="tab-close" title="关闭标签页">×</button>
+                `;
+                
+                tabsContainer.insertBefore(tab, newTabBtn);
+
+                this.createTab(tabId, 'about:blank', '新标签页');
+                this.switchTab(tabId);
+            }
+
+            switchTab(tabId) {
+                // 隐藏所有 webview
+                document.querySelectorAll('.webview').forEach(wv => {
+                    wv.style.display = 'none';
+                });
+
+                // 显示选中的 webview
+                const tab = this.tabs.get(tabId);
+                if (tab && tab.webview) {
+                    tab.webview.style.display = 'block';
+                }
+
+                // 更新标签页状态
+                document.querySelectorAll('.tab').forEach(t => {
+                    t.classList.remove('active');
+                });
+                document.querySelector(`[data-tab-id="${tabId}"]`).classList.add('active');
+
+                this.activeTabId = tabId;
+                this.updateUrlBar();
+            }
+
+            closeTab(tabId) {
+                if (this.tabs.size <= 1) {
+                    this.createNewTab();
+                    return;
+                }
+
+                const tab = this.tabs.get(tabId);
+                if (tab) {
+                    tab.webview.remove();
+                    this.tabs.delete(tabId);
+                }
+
+                document.querySelector(`[data-tab-id="${tabId}"]`).remove();
+
+                // 切换到其他标签页
+                const remainingTabs = Array.from(this.tabs.keys());
+                if (remainingTabs.length > 0) {
+                    this.switchTab(remainingTabs[0]);
+                }
+            }
+
+            setupWebviewEvents(webview, tabId) {
+                webview.addEventListener('did-start-loading', () => {
+                    this.showLoading();
+                    this.updateStatus('正在加载...');
+                });
+
+                webview.addEventListener('did-stop-loading', () => {
+                    this.hideLoading();
+                    this.updateStatus('就绪');
+                    this.updateSecurityIndicator(webview);
+                });
+
+                webview.addEventListener('did-navigate', (e) => {
+                    this.updateTabTitle(tabId, e.url);
+                    this.updateUrlBar();
+                });
+
+                webview.addEventListener('page-title-updated', (e) => {
+                    this.updateTabTitle(tabId, e.title);
+                });
+
+                webview.addEventListener('did-fail-load', (e) => {
+                    this.hideLoading();
+                    this.updateStatus('加载失败');
+                    this.showError(e.errorDescription);
+                });
+
+                webview.addEventListener('new-window', (e) => {
+                    e.preventDefault();
+                    this.createNewTab();
+                    const newTab = this.tabs.get(this.activeTabId);
+                    if (newTab) {
+                        newTab.webview.loadURL(e.url);
+                    }
+                });
+            }
+
+            navigateToUrl(url) {
+                const tab = this.tabs.get(this.activeTabId);
+                if (tab) {
+                    let finalUrl = url;
+                    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && !url.startsWith('about:')) {
+                        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+                    }
+                    tab.webview.loadURL(finalUrl);
+                }
+            }
+
+            goBack() {
+                const tab = this.tabs.get(this.activeTabId);
+                if (tab && tab.webview.canGoBack()) {
+                    tab.webview.goBack();
+                }
+            }
+
+            goForward() {
+                const tab = this.tabs.get(this.activeTabId);
+                if (tab && tab.webview.canGoForward()) {
+                    tab.webview.goForward();
+                }
+            }
+
+            refresh() {
+                const tab = this.tabs.get(this.activeTabId);
+                if (tab) {
+                    tab.webview.reload();
+                }
+            }
+
+            goHome() {
+                this.navigateToUrl('https://www.baidu.com');
+            }
+
+            updateTabTitle(tabId, title) {
+                const tabElement = document.querySelector(`[data-tab-id="${tabId}"] .tab-title`);
+                if (tabElement) {
+                    tabElement.textContent = title || '新标签页';
+                }
+                
+                const tab = this.tabs.get(tabId);
+                if (tab) {
+                    tab.title = title;
+                }
+            }
+
+            updateUrlBar() {
+                const tab = this.tabs.get(this.activeTabId);
+                if (tab) {
+                    document.getElementById('urlInput').value = tab.url;
+                }
+            }
+
+            updateStatus(text) {
+                document.getElementById('statusText').textContent = text;
+            }
+
+            updateSecurityIndicator(webview) {
+                const indicator = document.getElementById('securityIndicator');
+                const url = webview.getURL();
+                
+                if (url.startsWith('https://')) {
+                    indicator.textContent = '安全';
+                    indicator.className = 'security-indicator security-secure';
+                } else if (url.startsWith('http://')) {
+                    indicator.textContent = '不安全';
+                    indicator.className = 'security-indicator security-insecure';
+                } else {
+                    indicator.textContent = '';
+                    indicator.className = 'security-indicator';
+                }
+            }
+
+            showLoading() {
+                document.getElementById('loadingOverlay').style.display = 'flex';
+            }
+
+            hideLoading() {
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+
+            showError(message) {
+                const container = document.querySelector('.webview-container');
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.innerHTML = `
+                    <h3>页面加载失败</h3>
+                    <p>${message}</p>
+                    <button onclick="this.parentElement.remove()">确定</button>
+                `;
+                container.appendChild(errorDiv);
+            }
+        }
+
+        // 初始化浏览器
+        const browser = new BrowserManager();
+
+        // 监听来自主进程的导航请求
+        if (window.electronAPI && window.electronAPI.onNavigateToUrl) {
+            window.electronAPI.onNavigateToUrl((event, url) => {
+                if (browser && browser.navigateToUrl) {
+                    browser.navigateToUrl(url);
+                }
+            });
+        }
+    </script>
+</body>
+</html> 

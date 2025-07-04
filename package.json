@@ -1,0 +1,72 @@
+{
+    "name": "zhongshang-electron",
+    "version": "1.3.7",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder --win",
+        "dist:mac": "electron-builder --mac",
+        "dist:win": "electron-builder --win --publish always",
+        "dist:win:local": "electron-builder --win",
+        "dist:win7": "electron-builder --win --ia32",
+        "upload:minio": "node scripts/upload-to-minio.js",
+        "build:upload": "node scripts/build-and-upload.js",
+        "test:update": "node scripts/test-update.js",
+        "download:chromium": "node scripts/download-chromium.js",
+        "chromium:setup": "npm run download:chromium",
+        "chromium:install": "node scripts/chromium-manager.js install",
+        "chromium:launch": "node scripts/chromium-manager.js launch",
+        "chromium:status": "node scripts/chromium-manager.js status",
+        "chromium:cleanup": "node scripts/chromium-manager.js cleanup"
+    },
+    "dependencies": {
+        "axios": "^1.7.2",
+        "electron-updater": "^6.6.2",
+        "electron-window-state": "^5.0.3",
+        "minio": "^8.0.5"
+    },
+    "devDependencies": {
+        "electron": "^30.5.1",
+        "electron-builder": "^26.0.12"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "build": {
+        "productName": "zhongshang32",
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "ia32"
+                    ]
+                }
+            ],
+            "icon": "build/icon.ico"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "perMachine": false,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true
+        },
+        "publish": [
+            {
+                "provider": "generic",
+                "url": "http://123.56.169.44:9000/biaowang-content/electron-updates/"
+            }
+        ],
+        "extraResources": [
+            {
+              "from": "extraResources/",
+              "to": "extraResources",
+              "filter": ["**/*"]
+            }
+          ]
+    },
+    "electron-updater": "^6.1.7"
+}
