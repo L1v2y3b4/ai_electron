@@ -35,7 +35,7 @@
     "license": "ISC",
     "description": "",
     "build": {
-        "productName": "zhongshang32",
+        "productName": "zhongshang",
         "win": {
             "target": [
                 {

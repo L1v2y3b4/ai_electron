@@ -4,10 +4,6 @@ const windowStateKeeper = require('electron-window-state');
 const axios = require('axios');
 const { version } = require('./package.json');
 const { autoUpdater } = require('electron-updater');
-const config = require('./chromium/config.json'); // 路径按实际调整
-
-// Windows 示例
-const chromiumExec = path.join(config.path, 'chrome.exe');
 
 // Windows 7 兼容性配置
 if (process.platform === 'win32') {

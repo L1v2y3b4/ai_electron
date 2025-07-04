@@ -61,7 +61,7 @@ async function uploadToMinio() {
         
         for (const file of files) {
             // 上传 .exe、.blockmap 和 .yml 文件
-            if (file.endsWith('.exe') || file.endsWith('.yml') || file.endsWith('.blockmap')) {
+            if (file.endsWith('.dmg') || file.endsWith('.exe') || file.endsWith('.yml') || file.endsWith('.blockmap')) {
                 const filePath = path.join(distPath, file);
                 const objectName = `electron-updates/${file}`;
                 
