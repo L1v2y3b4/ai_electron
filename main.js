@@ -312,7 +312,7 @@ ipcMain.handle('save_user_cookies', (event, { currentNavId, cookiesList, token, 
   }
 });
 //去验证用户的信息
-ipcMain.handle('check_user_cookies', (event, { currentNavId, cookiesList, token, sendId }) => {
+ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, token, sendId }) => {
   const data = {
     'type': currentNavId,
     'json_str': JSON.stringify(cookiesList),
@@ -322,26 +322,17 @@ ipcMain.handle('check_user_cookies', (event, { currentNavId, cookiesList, token,
   const headers = {
     'Content-Type': 'application/json',
   };
-  fetch(checkUrl + '/desktop/check/sign/', {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(data)
-  })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      // 请求成功时处理响应数据console.log('请求成功:', data);
-      return data; // 返回处理后的数据
-    })
-    .catch(error => {
-      // 请求失败时处理错误
-      console.error('请求失败:', error);
-      return null;
-    });
+  try {
+    const response = await axios.post(
+      checkUrl + '/desktop/check/sign/',
+      JSON.stringify(data),
+      { headers }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('请求失败:', error);
+    return null;
+  }
 });
 function validateString(input, expectedLength=19) {
   // 检查输入是否是字符串类型
