@@ -552,6 +552,7 @@
 			{ id: 4, name: "微信公众号", url: "http://zs.open.chuangmaedu.com/openPlatform/preAuthCodeHtml/open?id=", icon: "💬", flag: false },
 			{ id: 3, name: "今日头条", url: "https://mp.toutiao.com/auth/page/login", icon: "📰", flag: false },
 			{ id: 5, name: "新浪", url: "https://mp.sina.com.cn/", icon: "🕊️", flag: false },
+			{ id: 8, name: "网易", url: "https://mp.163.com/oauth2/authorize?client_id=fOfFmkq4CF&response_type=code&redirect_uri=http://47.93.80.212:8000/wangyi/callback/?send_id=", icon: "🌐", flag: false },
 
 		];
 
@@ -632,7 +633,9 @@
 						if (currentNavId === 4) {
 							console.log(item.url + sendId)
 							webview.src = item.url + sendId;
-						} else {
+						}else if(currentNavId === 8){
+							webview.src = item.url + sendId;
+						}else {
 							webview.src = item.url;
 						}
 						cookiesList = []
@@ -670,7 +673,12 @@
 			document.getElementById('refreshBtn').addEventListener('click', () => {
 				const webview = document.getElementById('browserView');
 				showLoading();
-				webview.reload();
+				if(currentNavId === 8 || currentNavId === 4){
+					const a = navItems.find(item => item.id === currentNavId);
+					webview.src = a.url + sendId;
+				}else{
+					webview.reload();
+				}
 			});
 
 			// 退出登录
@@ -730,8 +738,6 @@
 				}
 			});
 
-			// 设置Cookie
-			// setupCookies();
 		}
 
 		// 显示/隐藏加载动画
@@ -745,25 +751,6 @@
 			loadingOverlay.classList.remove('show');
 		}
 
-		async function setupCookies() {
-			// 这里模拟从后端获取Cookie
-			const cookies = [
-				{ name: 'session_id', value: '1234567890', domain: '.baidu.com' },
-				{ name: 'user_token', value: token, domain: '.baidu.com' }
-			];
-
-			for (const cookie of cookies) {
-				await window.electronAPI.setCookie({
-					url: 'https://baidu.com',
-					name: cookie.name,
-					value: cookie.value,
-					domain: cookie.domain,
-					path: '/',
-					secure: true,
-					httpOnly: true
-				});
-			}
-		}
 
 		function checkLoginStatus(url) {
 			console.log('---验证url', url)
