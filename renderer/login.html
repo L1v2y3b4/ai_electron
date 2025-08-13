@@ -354,6 +354,97 @@
       opacity: 0.7;
       cursor: not-allowed;
     }
+
+    /* 自动更新信息显示区域样式 */
+    .update-info {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e1e8ed;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .update-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .update-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 5px;
+    }
+
+    .update-message {
+      font-size: 14px;
+      color: #666;
+      text-align: center;
+    }
+
+    .update-progress {
+      height: 8px;
+      background: #e1e8ed;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      overflow: hidden;
+    }
+
+    .update-progress-bar {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      transition: width 0.3s;
+      border-radius: 4px;
+    }
+
+    .update-loading {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+
+    .update-spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .update-btn {
+      width: 100%;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .update-btn:hover:enabled {
+      background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+    }
+
+    .update-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    /* 旋转动画 */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 
@@ -382,6 +473,21 @@
         <span id="loginText">登 录</span>
       </button>
 
+      <!-- 自动更新信息显示区域 -->
+      <div id="updateInfo" class="update-info" style="display:none;">
+        <div class="update-status">
+          <span id="updateTitle" class="update-title">检查更新</span>
+          <span id="updateMessage" class="update-message">正在检查更新...</span>
+        </div>
+        <div id="updateProgress" class="update-progress" style="display:none;">
+          <div id="updateProgressBar" class="update-progress-bar"></div>
+        </div>
+        <div id="updateLoading" class="update-loading">
+          <div class="update-spinner"></div>
+        </div>
+        <button id="updateOkBtn" class="update-btn" style="display:none;">立即重启安装</button>
+      </div>
+
       <div id="errorMessage" class="error-message"></div>
     </div>
 
@@ -390,19 +496,6 @@
       <span id="version" style="margin-left: 10px;"></span>
     </div>
   </div>
-
-  	<!-- 自动更新弹窗和进度条 -->
-	<div id="updateModal" class="message-box" style="display:none;z-index:2000;">
-		<h3 id="updateTitle">检查更新</h3>
-		<p id="updateMessage">正在检查更新...</p>
-		<div id="updateProgress" style="width:100%;height:8px;background:#eee;border-radius:4px;margin:18px 0 10px 0;overflow:hidden;">
-			<div id="updateProgressBar" style="height:100%;width:0;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s;"></div>
-		</div>
-		<div id="updateLoading" style="display:flex;justify-content:center;margin:10px 0;">
-			<div style="width:20px;height:20px;border:2px solid #f3f3f3;border-top:2px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;"></div>
-		</div>
-		<button id="updateOkBtn" style="display:none;">立即重启安装</button>
-	</div>
 
   <script>
     const loginBtn = document.getElementById('loginBtn');
@@ -516,7 +609,7 @@
     });
 
     		// 自动更新前端逻辑
-		const updateModal = document.getElementById('updateModal');
+		const updateInfo = document.getElementById('updateInfo');
 		const updateTitle = document.getElementById('updateTitle');
 		const updateMessage = document.getElementById('updateMessage');
 		const updateProgress = document.getElementById('updateProgress');
@@ -532,7 +625,7 @@
 			updateOkBtn.style.display = 'none';
 			updateLoading.style.display = 'flex';
 			updateProgress.style.display = 'none';
-			updateModal.style.display = 'block';
+			updateInfo.style.display = 'block';
 		});
 
 		window.electronAPI.onUpdateAvailable((event, info) => {
@@ -542,32 +635,35 @@
 			updateOkBtn.style.display = 'none';
 			updateLoading.style.display = 'none';
 			updateProgress.style.display = 'block';
+			updateInfo.style.display = 'block';
 		});
+
 		window.electronAPI.onDownloadProgress((event, progress) => {
 			if(progress && progress.percent) {
 				updateProgressBar.style.width = progress.percent + '%';
 				updateMessage.textContent = '下载进度：' + progress.percent.toFixed(1) + '%';
 			}
 		});
+
 		window.electronAPI.onUpdateDownloaded((event, info) => {
 			updateMessage.textContent = '下载完成，点击按钮立即重启安装';
 			updateProgressBar.style.width = '100%';
-			updateOkBtn.style.display = 'inline-block';
+			updateOkBtn.style.display = 'block';
 		});
+
 		window.electronAPI.onUpdateNotAvailable((event, info) => {
-			// 可选：提示已是最新版本
 			updateTitle.textContent = '检查完成';
 			updateMessage.textContent = '当前已是最新版本';
 			updateLoading.style.display = 'none';
 			updateProgress.style.display = 'none';
-			// 3秒后自动关闭弹窗
+			// 3秒后自动隐藏更新信息
 			setTimeout(() => {
-				updateModal.style.display = 'none';
+				updateInfo.style.display = 'none';
 			}, 3000);
 		});
+
 		updateOkBtn.onclick = function() {
-			// 用户点击后直接关闭弹窗，等待主进程自动重启安装
-      window.electronAPI.restartToUpdate();
+			window.electronAPI.restartToUpdate();
 			updateOkBtn.disabled = true;
 			updateMessage.textContent = '正在重启安装...';
 		};
