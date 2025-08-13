@@ -8,7 +8,7 @@ dist/
 package-lock.json
 yarn.lock
 # 更新配置
-/dev-app-update.yml
+# /dev-app-update.yml
 # 日志文件
 *.log
 # 临时文件
