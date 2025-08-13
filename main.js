@@ -109,21 +109,21 @@ let isLoggingOut = false; // 添加退出登录标志
 function createLoginWindow() {
   try {
     const loginState = windowStateKeeper({
-      defaultWidth: 400,
-      defaultHeight: 500,
+      defaultWidth: 360,
+      defaultHeight: 400,
       defaultCenter: true
     });
 
 
     loginWindow = new BrowserWindow({
-      // x: loginState.x,
-      // y: loginState.y,
-      width: loginState.width,
-      height: loginState.height,
-      minWidth: 380,
-      minHeight: 480,
-      maxWidth: 500,
-      maxHeight: 600,
+      x: loginState.x,
+      y: loginState.y,
+      width: 360,
+      height: 500,
+      minWidth: 360,
+      minHeight: 450,
+      maxWidth: 600,
+      maxHeight: 700,
       resizable: true,
       center: true,
       webPreferences: {
@@ -132,7 +132,7 @@ function createLoginWindow() {
         contextIsolation: true,
         webviewTag: true
       },
-      frame: true,
+      frame: false,
       backgroundColor: '#f8f9fa'
     });
     Menu.setApplicationMenu(null);
