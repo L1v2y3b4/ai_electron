@@ -62,7 +62,6 @@
         width: 28px;
         height: 28px;
         background: rgba(255, 255, 255, 0.2);
-        border: none;
         border-radius: 50%;
         color: white;
         font-size: 16px;
@@ -71,8 +70,11 @@
         align-items: center;
         justify-content: center;
         transition: all 0.3s ease;
-        z-index: 20;
+        z-index: 2000; /* 确保在拖拽区域之上 */
         backdrop-filter: blur(5px);
+        border: none;
+        -webkit-app-region: no-drag; /* 按钮不可拖拽 */
+        app-region: no-drag;
       }
 
       .close-btn:hover {
@@ -533,61 +535,86 @@
           transform: rotate(360deg);
         }
       }
+
+		/* 拖拽区域样式 */
+		.drag-area {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 30px;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			-webkit-app-region: drag; /* 使区域可拖拽 */
+			app-region: drag;
+			z-index: 1000;
+			border-radius: 8px 8px 0 0;
+		}
+
+		/* 调整登录容器位置，避免被拖拽区域遮挡 */
+		.login-container {
+			margin-top: 30px;
+		}
     </style>
   </head>
 
   <body>
-    <div class="login-container">
-      <!-- 关闭按钮 -->
-      <button class="close-btn" id="closeBtn" title="关闭"></button>
+    <div id="app">
+      <!-- 拖拽区域 -->
+      <div class="drag-area" id="dragArea"></div>
+      
+      <!-- 登录表单 -->
+      <div class="login-container">
+        <!-- 关闭按钮 -->
+        <button class="close-btn" id="closeBtn" title="关闭"></button>
 
-      <div class="login-header">
-        <h1>授权工具</h1>
-        <p>欢迎使用内容管理平台</p>
-      </div>
-
-      <div class="login-body">
-        <div class="input-group">
-          <label for="username">用户名</label>
-          <input type="text" id="username" placeholder="请输入您的用户名" />
+        <div class="login-header">
+          <h1>授权工具</h1>
+          <p>欢迎使用内容管理平台</p>
         </div>
 
-        <div class="input-group">
-          <label for="password">密码</label>
-          <input type="password" id="password" placeholder="请输入您的密码" />
-        </div>
+        <div class="login-body">
+          <div class="input-group">
+            <label for="username">用户名</label>
+            <input type="text" id="username" placeholder="请输入您的用户名" />
+          </div>
 
-        <button id="loginBtn" class="login-btn">
-          <span id="loginText">登 录</span>
-        </button>
+          <div class="input-group">
+            <label for="password">密码</label>
+            <input type="password" id="password" placeholder="请输入您的密码" />
+          </div>
 
-        <!-- 自动更新信息显示区域 -->
-        <div id="updateInfo" class="update-info" style="display: none">
-          <div class="update-status">
-            <span id="updateTitle" class="update-title"></span>
-            <span id="updateMessage" class="update-message"></span>
-          </div>
-          <div
-            id="updateProgress"
-            class="update-progress"
-            style="display: none"
-          >
-            <div id="updateProgressBar" class="update-progress-bar"></div>
-          </div>
-          <div id="updateLoading" class="update-loading">
-            <div class="update-spinner"></div>
-          </div>
-          <button id="updateOkBtn" class="update-btn" style="display: none">
-            立即重启安装
+          <button id="loginBtn" class="login-btn">
+            <span id="loginText">登 录</span>
           </button>
+
+          <!-- 自动更新信息显示区域 -->
+          <div id="updateInfo" class="update-info" style="display: none">
+            <div class="update-status">
+              <span id="updateTitle" class="update-title"></span>
+              <span id="updateMessage" class="update-message"></span>
+            </div>
+            <div
+              id="updateProgress"
+              class="update-progress"
+              style="display: none"
+            >
+              <div id="updateProgressBar" class="update-progress-bar"></div>
+            </div>
+            <div id="updateLoading" class="update-loading">
+              <div class="update-spinner"></div>
+            </div>
+            <button id="updateOkBtn" class="update-btn" style="display: none">
+              立即重启安装
+            </button>
+          </div>
+
+          <div id="errorMessage" class="error-message"></div>
         </div>
 
-        <div id="errorMessage" class="error-message"></div>
-      </div>
-
-      <div class="login-footer">
-        © 2025 授权工具 - 专业的内容管理解决方案
-        <span id="version" style="margin-left: 10px"></span>
+        <div class="login-footer">
+          © 2025 授权工具 - 专业的内容管理解决方案
+          <span id="version" style="margin-left: 10px"></span>
+        </div>
       </div>
     </div>
 
@@ -713,7 +740,6 @@
       const updateLoading = document.getElementById("updateLoading");
       // 用于存储更新动画的定时器
       let updatingInterval = null;
-
       // 检查更新时的loading状态
       window.electronAPI.onCheckingForUpdate((event) => {
         // updateTitle.textContent = '检查更新';
@@ -824,6 +850,10 @@
         updateOkBtn.disabled = true;
         updateMessage.textContent = "正在重启安装...";
       };
+      // 禁用输入框和登录按钮
+      usernameInput.disabled = false;
+      passwordInput.disabled = false;
+      loginBtn.disabled = false;
     </script>
   </body>
 </html>
