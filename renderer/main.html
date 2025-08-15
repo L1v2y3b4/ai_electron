@@ -774,12 +774,12 @@
 			});
 
 			// 监听 did-frame-navigate 事件
-			mainWindow.webContents.on('did-frame-navigate', (event, url, isMainFrame) => {
-				if (isMainFrame) {
-					console.log('主框架导航到:', url);
-					// 在这里处理路由变化逻辑
-				}
-			});
+			// mainWindow.webContents.on('did-frame-navigate', (event, url, isMainFrame) => {
+			// 	if (isMainFrame) {
+			// 		console.log('主框架导航到:', url);
+			// 		// 在这里处理路由变化逻辑
+			// 	}
+			// });
 
 			// 设置Cookie
 			// setupCookies();
