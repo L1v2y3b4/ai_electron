@@ -588,7 +588,7 @@ app.whenReady().then(() => {
   );
   createLoginWindow();
   app.on('activate', () => {
-    guestView.register(); // 注册Guest View
+    // guestView.register(); // 注册Guest View
     // 只有在不是退出登录且没有窗口时才创建登录窗口
     if (!isLoggingOut && BrowserWindow.getAllWindows().length === 0) {
       createLoginWindow();
