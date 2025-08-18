@@ -52,11 +52,22 @@
 			pointer-events: none;
 		}
 
+		.drag-area {
+			width: 100%;
+			height: 30px; /* 拖拽区域的高度 */
+			cursor: grab; /* 鼠标指针变为可拖拽 */
+			-webkit-app-region: drag; /* 允许拖拽 */
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 100; /* 确保在最上层 */
+		}
+
 		.nav-header {
-			padding: 30px 25px;
+			padding: 40px 20px 20px 20px; /* 增加顶部边距 */
+			text-align: center;
 			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-			position: relative;
-			z-index: 1;
+			margin-bottom: 20px;
 		}
 
 		.nav-header h2 {
@@ -490,6 +501,9 @@
 	<div id="app">
 		<!-- 左侧导航 -->
 		<div class="sidebar">
+			<!-- 拖拽区域 -->
+			<div class="drag-area" id="dragArea"></div>
+			
 			<div class="nav-header">
 				<h2 id="userNameHeader">平台导航</h2>
 			</div>
@@ -548,7 +562,7 @@
 			{ id: 2, name: "搜狐", url: "https://mp.sohu.com/mpfe/v4/login", icon: "🦊", flag: false },
 			{ id: 6, name: "腾讯创作", url: "https://om.qq.com/main", icon: "🐧", flag: false },
 			{ id: 7, name: "值得买", url: "https://zhiyou.smzdm.com/user/login?redirect_to=https://post.smzdm.com/tougao/", icon: "🛒", flag: false },
-			{ id: 1, name: "百家号", url: "https://baijiahao.baidu.com/builder/theme/bjh/login", icon: "📝", flag: false },
+			{ id: 1, name: "百家号", url: "https://baijiahao.baidu.com/", icon: "📝", flag: false },
 			{ id: 4, name: "微信公众号", url: "http://zs.open.chuangmaedu.com/openPlatform/preAuthCodeHtml/open?id=", icon: "💬", flag: false },
 			{ id: 3, name: "今日头条", url: "https://mp.toutiao.com/auth/page/login", icon: "📰", flag: false },
 			{ id: 5, name: "新浪", url: "https://mp.sina.com.cn/", icon: "🕊️", flag: false },
@@ -576,7 +590,44 @@
 			initApp();
 		});
 
+		// 初始化拖拽功能
+		function initDragAndDrop() {
+			const dragArea = document.getElementById('dragArea');
+			let isDragging = false;
+			let startX, startY;
+
+			dragArea.addEventListener('mousedown', (e) => {
+				isDragging = true;
+				startX = e.clientX;
+				startY = e.clientY;
+				dragArea.style.cursor = 'grabbing';
+			});
+
+			document.addEventListener('mousemove', (e) => {
+				if (!isDragging) return;
+				
+				const deltaX = e.clientX - startX;
+				const deltaY = e.clientY - startY;
+				
+				// 使用Electron API移动窗口
+				if (window.electronAPI && window.electronAPI.moveWindow) {
+					window.electronAPI.moveWindow(deltaX, deltaY);
+				}
+				
+				startX = e.clientX;
+				startY = e.clientY;
+			});
+
+			document.addEventListener('mouseup', () => {
+				isDragging = false;
+				dragArea.style.cursor = 'grab';
+			});
+		}
+
 		function initApp() {
+			// 初始化拖拽功能
+			initDragAndDrop();
+			
 			// 渲染导航项
 
 			cookiesList = [];
@@ -731,12 +782,12 @@
 			});
 
 			// 监听 did-frame-navigate 事件
-			mainWindow.webContents.on('did-frame-navigate', (event, url, isMainFrame) => {
-				if (isMainFrame) {
-					console.log('主框架导航到:', url);
-					// 在这里处理路由变化逻辑
-				}
-			});
+			// mainWindow.webContents.on('did-frame-navigate', (event, url, isMainFrame) => {
+			// 	if (isMainFrame) {
+			// 		console.log('主框架导航到:', url);
+			// 		// 在这里处理路由变化逻辑
+			// 	}
+			// });
 
 		}
 

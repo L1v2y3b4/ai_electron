@@ -1,577 +1,859 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>登录 - 授权工具</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
-    }
-
-    body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      color: #333;
-    }
-
-    .login-container {
-      width: 320px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-      overflow: hidden;
-      position: relative;
-      z-index: 10;
-      animation: slideUp 0.6s ease-out;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>登录 - 授权工具</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial,
+          sans-serif;
       }
 
-      to {
-        opacity: 1;
-        transform: translateY(0);
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
       }
-    }
 
-    /* 关闭按钮样式 */
-    .close-btn {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      width: 28px;
-      height: 28px;
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      border-radius: 50%;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-      z-index: 20;
-      backdrop-filter: blur(5px);
-    }
-
-    .close-btn:hover {
-      background: rgba(255, 255, 255, 0.3);
-      transform: scale(1.1);
-    }
-
-    .close-btn:active {
-      transform: scale(0.95);
-    }
-
-    .close-btn::before,
-    .close-btn::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 2px;
-      background: white;
-      border-radius: 1px;
-    }
-
-    .close-btn::before {
-      transform: rotate(45deg);
-    }
-
-    .close-btn::after {
-      transform: rotate(-45deg);
-    }
-
-    .login-header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      text-align: center;
-      padding: 25px 20px;
-      position: relative;
-    }
-
-    .login-header h1 {
-      font-size: 22px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .login-header p {
-      margin-top: 5px;
-      font-size: 12px;
-      opacity: 0.9;
-      position: relative;
-      z-index: 1;
-    }
-
-    .login-body {
-      padding: 25px 25px 20px;
-    }
-
-    .input-group {
-      margin-bottom: 18px;
-      position: relative;
-    }
-
-    .input-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 13px;
-      color: #555;
-      font-weight: 500;
-    }
-
-    .input-group input {
-      width: 100%;
-      padding: 12px 15px;
-      border: 2px solid #e1e8ed;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      background: #f8f9fa;
-      color: #333;
-    }
-
-    .input-group input:focus {
-      border-color: #667eea;
-      background: white;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .input-group input::placeholder {
-      color: #999;
-      font-size: 13px;
-    }
-
-    .login-btn {
-      width: 100%;
-      padding: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-top: 10px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .login-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .login-btn:hover::before {
-      left: 100%;
-    }
-
-    .login-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
-    }
-
-    .login-btn:active {
-      transform: translateY(0);
-    }
-
-    .login-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .error-message {
-      color: #e74c3c;
-      font-size: 12px;
-      text-align: center;
-      margin-top: 15px;
-      min-height: 16px;
-      padding: 8px;
-      background: rgba(231, 76, 60, 0.1);
-      border-radius: 6px;
-      border: 1px solid rgba(231, 76, 60, 0.2);
-      opacity: 0;
-      transform: translateY(-10px);
-      transition: all 0.3s ease;
-    }
-
-    .error-message.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .login-footer {
-      text-align: center;
-      padding: 15px;
-      font-size: 11px;
-      color: #888;
-      border-top: 1px solid #f0f0f0;
-      background: #fafbfc;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* 响应式设计 */
-    @media (max-width: 480px) {
       .login-container {
-        width: 90%;
-        margin: 20px;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 0;
+        box-shadow: none;
+        overflow: hidden;
+        position: relative;
+        z-index: 10;
+        animation: slideUp 0.6s ease-out;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
       }
 
-      .login-body {
-        padding: 20px 20px 15px;
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* 关闭按钮样式 */
+      .close-btn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 28px;
+        height: 28px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        z-index: 2000; /* 确保在拖拽区域之上 */
+        backdrop-filter: blur(5px);
+        border: none;
+        -webkit-app-region: no-drag; /* 按钮不可拖拽 */
+        app-region: no-drag;
+      }
+
+      .close-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+      }
+
+      .close-btn:active {
+        transform: scale(0.95);
+      }
+
+      .close-btn::before,
+      .close-btn::after {
+        content: "";
+        position: absolute;
+        width: 14px;
+        height: 2px;
+        background: white;
+        border-radius: 1px;
+      }
+
+      .close-btn::before {
+        transform: rotate(45deg);
+      }
+
+      .close-btn::after {
+        transform: rotate(-45deg);
       }
 
       .login-header {
-        padding: 20px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        padding: 25px 20px;
+        position: relative;
+        flex-shrink: 0;
+        min-height: 0;
       }
 
       .login-header h1 {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .login-header p {
+        margin-top: 5px;
+        font-size: 12px;
+        opacity: 0.9;
+        position: relative;
+        z-index: 1;
+      }
+
+      .login-body {
+        padding: 25px 25px 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .input-group {
+        margin-bottom: 18px;
+        position: relative;
+        min-width: 0;
+      }
+
+      .input-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: #555;
+        font-weight: 500;
+      }
+
+      .input-group input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e1e8ed;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+        color: #333;
+        box-sizing: border-box;
+        min-width: 0;
+      }
+
+      .input-group input:focus {
+        border-color: #667eea;
+        background: white;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .input-group input::placeholder {
+        color: #999;
+        font-size: 13px;
+      }
+
+      .login-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .login-btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.2),
+          transparent
+        );
+        transition: left 0.5s;
+      }
+
+      .login-btn:hover::before {
+        left: 100%;
+      }
+
+      .login-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .login-btn:active {
+        transform: translateY(0);
+      }
+
+      .login-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .error-message {
+        color: #e74c3c;
+        font-size: 12px;
+        text-align: center;
+        margin-top: 15px;
+        min-height: 16px;
+        padding: 8px;
+        background: rgba(231, 76, 60, 0.1);
+        border-radius: 6px;
+        border: 1px solid rgba(231, 76, 60, 0.2);
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+      }
+
+      .error-message.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .login-footer {
+        text-align: center;
+        padding: 15px;
+        font-size: 11px;
+        color: #888;
+        border-top: 1px solid #f0f0f0;
+        background: #fafbfc;
+        flex-shrink: 0;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* 响应式设计 */
+      @media (max-width: 480px) {
+        .login-container {
+          width: 100vw;
+          height: 100vh;
+          margin: 0;
+          padding: 0;
+        }
+
+        .login-body {
+          padding: 15px 15px 10px;
+          justify-content: flex-start;
+          padding-top: 20px;
+        }
+
+        .login-header {
+          padding: 15px 15px;
+        }
+
+        .login-header h1 {
+          font-size: 18px;
+        }
+
+        .input-group {
+          margin-bottom: 15px;
+        }
+
+        .input-group input {
+          padding: 10px 12px;
+          font-size: 13px;
+        }
+
+        .login-btn {
+          padding: 10px;
+          font-size: 13px;
+        }
+      }
+
+      /* 超小屏幕适配 */
+      @media (max-width: 320px) {
+        .login-body {
+          padding: 10px 10px 5px;
+        }
+
+        .login-header {
+          padding: 10px 10px;
+        }
+
+        .input-group input {
+          padding: 8px 10px;
+          font-size: 12px;
+        }
+
+        .login-btn {
+          padding: 8px;
+          font-size: 12px;
+        }
+      }
+
+      /* 自动更新弹窗样式 */
+      #updateModal.message-box {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 320px;
+        max-width: 90vw;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(102, 126, 234, 0.18);
+        padding: 32px 24px 24px 24px;
+        z-index: 2000;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        animation: slideUp 0.5s;
+      }
+
+      #updateModal h3 {
         font-size: 20px;
+        color: #667eea;
+        margin-bottom: 10px;
+        font-weight: 600;
       }
-    }
 
-    /* 自动更新弹窗样式 */
-    #updateModal.message-box {
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      min-width: 320px;
-      max-width: 90vw;
-      background: rgba(255,255,255,0.98);
-      border-radius: 16px;
-      box-shadow: 0 12px 32px rgba(102,126,234,0.18);
-      padding: 32px 24px 24px 24px;
-      z-index: 2000;
-      text-align: center;
-      backdrop-filter: blur(10px);
-      animation: slideUp 0.5s;
-    }
+      #updateModal p {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 18px;
+      }
 
-    #updateModal h3 {
-      font-size: 20px;
-      color: #667eea;
-      margin-bottom: 10px;
-      font-weight: 600;
-    }
+      #updateProgress {
+        width: 100%;
+        height: 10px;
+        background: #e1e8ed;
+        border-radius: 5px;
+        margin: 18px 0 10px 0;
+        overflow: hidden;
+        display: block;
+      }
 
-    #updateModal p {
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 18px;
-    }
+      #updateProgressBar {
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transition: width 0.3s;
+        border-radius: 5px;
+      }
 
-    #updateProgress {
-      width: 100%;
-      height: 10px;
-      background: #e1e8ed;
-      border-radius: 5px;
-      margin: 18px 0 10px 0;
-      overflow: hidden;
-      display: block;
-    }
+      #updateLoading > div {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
 
-    #updateProgressBar {
-      height: 100%;
-      width: 0;
-      background: linear-gradient(90deg, #667eea, #764ba2);
-      transition: width 0.3s;
-      border-radius: 5px;
-    }
+      #updateOkBtn {
+        display: none;
+        margin-top: 18px;
+        padding: 10px 28px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        transition: background 0.3s, transform 0.2s;
+      }
 
-    #updateLoading > div {
-      width: 28px;
-      height: 28px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
+      #updateOkBtn:hover:enabled {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        transform: translateY(-2px) scale(1.04);
+      }
 
-    #updateOkBtn {
-      display: none;
-      margin-top: 18px;
-      padding: 10px 28px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(102,126,234,0.10);
-      transition: background 0.3s, transform 0.2s;
-    }
+      #updateOkBtn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
 
-    #updateOkBtn:hover:enabled {
-      background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-      transform: translateY(-2px) scale(1.04);
-    }
+      /* 自动更新信息显示区域样式 */
+      .update-info {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e1e8ed;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      .updateinfoStyle {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        height: 30px;
+      }
+      .update-status {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 15px;
+      }
 
-    #updateOkBtn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
-  </style>
-</head>
+      .update-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 5px;
+      }
+      .updateInfoposition {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 320px;
+        max-width: 90vw;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(102, 126, 234, 0.18);
+        padding: 32px 24px 24px 24px;
+        z-index: 2000;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        animation: slideUp 0.5s;
+      }
+      .update-message {
+        font-size: 14px;
+        color: #666;
+        text-align: center;
+      }
 
-<body>
-  <div class="login-container">
-    <!-- 关闭按钮 -->
-    <button class="close-btn" id="closeBtn" title="关闭"></button>
+      .update-progress {
+        height: 8px;
+        background: #e1e8ed;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        overflow: hidden;
+      }
 
-    <div class="login-header">
-      <h1>授权工具</h1>
-      <p>欢迎使用内容管理平台</p>
-    </div>
+      .update-progress-bar {
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transition: width 0.3s;
+        border-radius: 4px;
+      }
 
-    <div class="login-body">
-      <div class="input-group">
-        <label for="username">用户名</label>
-        <input type="text" id="username" placeholder="请输入您的用户名">
+      .update-loading {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 15px;
+      }
+
+      .update-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      .update-btn {
+        width: 100%;
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .update-btn:hover:enabled {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+      }
+
+      .update-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      /* 旋转动画 */
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+		/* 拖拽区域样式 */
+		.drag-area {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 30px;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			-webkit-app-region: drag; /* 使区域可拖拽 */
+			app-region: drag;
+			z-index: 1000;
+			border-radius: 8px 8px 0 0;
+		}
+
+		/* 调整登录容器位置，避免被拖拽区域遮挡 */
+		.login-container {
+			margin-top: 30px;
+		}
+    </style>
+  </head>
+
+  <body>
+    <div id="app">
+      <!-- 拖拽区域 -->
+      <div class="drag-area" id="dragArea"></div>
+      
+      <!-- 登录表单 -->
+      <div class="login-container">
+        <!-- 关闭按钮 -->
+        <button class="close-btn" id="closeBtn" title="关闭"></button>
+
+        <div class="login-header">
+          <h1>授权工具</h1>
+          <p>欢迎使用内容管理平台</p>
+        </div>
+
+        <div class="login-body">
+          <div class="input-group">
+            <label for="username">用户名</label>
+            <input type="text" id="username" placeholder="请输入您的用户名" />
+          </div>
+
+          <div class="input-group">
+            <label for="password">密码</label>
+            <input type="password" id="password" placeholder="请输入您的密码" />
+          </div>
+
+          <button id="loginBtn" class="login-btn">
+            <span id="loginText">登 录</span>
+          </button>
+
+          <!-- 自动更新信息显示区域 -->
+          <div id="updateInfo" class="update-info" style="display: none">
+            <div class="update-status">
+              <span id="updateTitle" class="update-title"></span>
+              <span id="updateMessage" class="update-message"></span>
+            </div>
+            <div
+              id="updateProgress"
+              class="update-progress"
+              style="display: none"
+            >
+              <div id="updateProgressBar" class="update-progress-bar"></div>
+            </div>
+            <div id="updateLoading" class="update-loading">
+              <div class="update-spinner"></div>
+            </div>
+            <button id="updateOkBtn" class="update-btn" style="display: none">
+              立即重启安装
+            </button>
+          </div>
+
+          <div id="errorMessage" class="error-message"></div>
+        </div>
+
+        <div class="login-footer">
+          © 2025 授权工具 - 专业的内容管理解决方案
+          <span id="version" style="margin-left: 10px"></span>
+        </div>
       </div>
-
-      <div class="input-group">
-        <label for="password">密码</label>
-        <input type="password" id="password" placeholder="请输入您的密码">
-      </div>
-
-      <button id="loginBtn" class="login-btn">
-        <span id="loginText">登 录</span>
-      </button>
-
-      <div id="errorMessage" class="error-message"></div>
     </div>
 
-    <div class="login-footer">
-      © 2025 授权工具 - 专业的内容管理解决方案
-      <span id="version" style="margin-left: 10px;"></span>
-    </div>
-  </div>
+    <script>
+      const loginBtn = document.getElementById("loginBtn");
+      const usernameInput = document.getElementById("username");
+      const passwordInput = document.getElementById("password");
+      const errorMessage = document.getElementById("errorMessage");
+      const loginText = document.getElementById("loginText");
+      const closeBtn = document.getElementById("closeBtn");
 
-  	<!-- 自动更新弹窗和进度条 -->
-	<div id="updateModal" class="message-box" style="display:none;z-index:2000;">
-		<h3 id="updateTitle">检查更新</h3>
-		<p id="updateMessage">正在检查更新...</p>
-		<div id="updateProgress" style="width:100%;height:8px;background:#eee;border-radius:4px;margin:18px 0 10px 0;overflow:hidden;">
-			<div id="updateProgressBar" style="height:100%;width:0;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s;"></div>
-		</div>
-		<div id="updateLoading" style="display:flex;justify-content:center;margin:10px 0;">
-			<div style="width:20px;height:20px;border:2px solid #f3f3f3;border-top:2px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;"></div>
-		</div>
-		<button id="updateOkBtn" style="display:none;">立即重启安装</button>
-	</div>
-
-  <script>
-    const loginBtn = document.getElementById('loginBtn');
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    const errorMessage = document.getElementById('errorMessage');
-    const loginText = document.getElementById('loginText');
-    const closeBtn = document.getElementById('closeBtn');
-
-
-    // 关闭按钮事件
-    closeBtn.addEventListener('click', () => {
-      // 调用 Electron API 关闭窗口
-      if (window.electronAPI && window.electronAPI.closeWindow) {
-        window.electronAPI.closeWindow();
-      } else {
-        // 如果没有 Electron API，则使用浏览器方式关闭
-        window.close();
-      }
-    });
-
-    loginBtn.addEventListener('click', async () => {
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value.trim();
-      console.log('---------------')
-      if (!username || !password) {
-        showError('请输入用户名和密码');
-        return;
-      }
-
-      // 显示加载状态
-      loginText.innerHTML = '<span class="spinner"></span>登录中...';
-      loginBtn.disabled = true;
-
-      try {
-        const result = await window.electronAPI.login({ username, password });
-
-        if (result.success) {
-          // 登录成功动画
-          loginBtn.style.background = 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)';
-          loginText.innerHTML = '<span class="spinner"></span>登录成功，正在跳转...';
-
-          setTimeout(() => {
-            window.electronAPI.openMainWindow({
-              token: result.token,
-              sendId: result.sendId,
-              userName:result.userName,
-            });
-          }, 1000);
+      // 关闭按钮事件
+      closeBtn.addEventListener("click", () => {
+        // 调用 Electron API 关闭窗口
+        if (window.electronAPI && window.electronAPI.closeWindow) {
+          window.electronAPI.closeWindow();
         } else {
-          showError(result.message || '登录失败');
-          setTimeout(() => {
-            loginText.textContent = '登 录';
+          // 如果没有 Electron API，则使用浏览器方式关闭
+          window.close();
+        }
+      });
+
+      loginBtn.addEventListener("click", async () => {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+        console.log("---------------");
+        if (!username || !password) {
+          showError("请输入用户名和密码");
+          return;
+        }
+
+        // 显示加载状态
+        loginText.innerHTML = '<span class="spinner"></span>登录中...';
+        loginBtn.disabled = true;
+
+        try {
+          const result = await window.electronAPI.login({ username, password });
+
+          if (result.success) {
+            // 登录成功动画
+            loginBtn.style.background =
+              "linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)";
+            loginText.innerHTML =
+              '<span class="spinner"></span>登录成功，正在跳转...';
+
+            setTimeout(() => {
+              window.electronAPI.openMainWindow({
+                token: result.token,
+                sendId: result.sendId,
+                userName: result.userName,
+              });
+            }, 1000);
+          } else {
+            showError(result.message || "登录失败");
+            setTimeout(() => {
+              loginText.textContent = "登 录";
+              loginBtn.disabled = false;
+            }, 200);
+          }
+        } catch (error) {
+          showError("网络错误，请稍后重试");
+        } finally {
+          if (!result?.success) {
+            loginText.textContent = "登 录";
             loginBtn.disabled = false;
-          }, 200);
+          }
         }
-      } catch (error) {
-        showError('网络错误，请稍后重试');
-      } finally {
-        if (!result?.success) {
-          loginText.textContent = '登 录';
-          loginBtn.disabled = false;
+      });
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.add("show");
+
+        // 清空输入框
+        usernameInput.value = "";
+        passwordInput.value = "";
+
+        // 3秒后隐藏错误信息
+        setTimeout(() => {
+          errorMessage.classList.remove("show");
+        }, 3000);
+      }
+
+      // 按Enter键触发登录
+      passwordInput.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") {
+          loginBtn.click();
         }
-      }
-    });
+      });
 
-    function showError(message) {
-      errorMessage.textContent = message;
-      errorMessage.classList.add('show');
+      // 按ESC键关闭窗口
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeBtn.click();
+        }
+      });
 
-      // 清空输入框
-      usernameInput.value = '';
-      passwordInput.value = '';
+      // 页面加载动画
+      document.addEventListener("DOMContentLoaded", () => {
+        const container = document.querySelector(".login-container");
+        container.style.opacity = "0";
+        container.style.transform = "translateY(30px)";
 
-      // 3秒后隐藏错误信息
-      setTimeout(() => {
-        errorMessage.classList.remove('show');
-      }, 3000);
-    }
+        setTimeout(() => {
+          container.style.transition = "all 0.6s ease-out";
+          container.style.opacity = "1";
+          container.style.transform = "translateY(0)";
+        }, 100);
+        const params = new URLSearchParams(window.location.search);
+        const version = params.get("version");
+        if (version) {
+          document.getElementById("version").textContent = `v${version}`;
+        }
+      });
 
-    // 按Enter键触发登录
-    passwordInput.addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') {
-        loginBtn.click();
-      }
-    });
+      // 自动更新前端逻辑
+      const updateInfo = document.getElementById("updateInfo");
+      const updateTitle = document.getElementById("updateTitle");
+      const updateMessage = document.getElementById("updateMessage");
+      const updateProgress = document.getElementById("updateProgress");
+      const updateProgressBar = document.getElementById("updateProgressBar");
+      const updateOkBtn = document.getElementById("updateOkBtn");
+      const updateLoading = document.getElementById("updateLoading");
+      // 用于存储更新动画的定时器
+      let updatingInterval = null;
+      // 检查更新时的loading状态
+      window.electronAPI.onCheckingForUpdate((event) => {
+        // updateTitle.textContent = '检查更新';
+        // 清除可能存在的旧定时器
+        if (updatingInterval) {
+          clearInterval(updatingInterval);
+        }
+        updateMessage.textContent = "正在检查更新...";
+        updateMessage.style.color = "red";
+        updateProgressBar.style.width = "0%";
+        updateOkBtn.style.display = "none";
+        updateLoading.style.display = "none";
+        updateProgress.style.display = "none";
+        updateInfo.style.display = "block";
+        updateInfo.classList.add("updateinfoStyle");
 
-    // 按ESC键关闭窗口
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeBtn.click();
-      }
-    });
+        // 禁用输入框和登录按钮
+        usernameInput.disabled = true;
+        passwordInput.disabled = true;
+        loginBtn.disabled = true;
+        // 动画逻辑 - 点依次出现
+        let dotCount = 0;
+        const baseText = "正在更新";
 
-    // 页面加载动画
-    document.addEventListener('DOMContentLoaded', () => {
-      const container = document.querySelector('.login-container');
-      container.style.opacity = '0';
-      container.style.transform = 'translateY(30px)';
+        // 设置定时器，每500ms更新一次
+        updatingInterval = setInterval(() => {
+          // 重置点数量（0-3循环）
+          dotCount = (dotCount % 3) + 1;
+          // 更新显示文本
+          updateMessage.textContent = baseText + ".".repeat(dotCount);
+        }, 500);
+      });
+      window.electronAPI.onUpdateAvailable((event, info) => {
+          //清除定时器
+          if (updatingInterval) {
+            clearInterval(updatingInterval);
+            updatingInterval = null;
+          }
+          updateInfo.classList.add("updateinfoStyle");
+          updateTitle.textContent = "发现新版本 v" + info.version;
+          updateMessage.textContent = "正在下载更新...";
+          updateProgressBar.style.width = "0%";
+          updateOkBtn.style.display = "none";
+          updateLoading.style.display = "none";
+          updateProgress.style.display = "block";
+          updateInfo.style.display = "block";
+           // 动画逻辑 - 点依次出现
+          let dotCount = 0;
+          const baseText = "正在下载更新";
 
-      setTimeout(() => {
-        container.style.transition = 'all 0.6s ease-out';
-        container.style.opacity = '1';
-        container.style.transform = 'translateY(0)';
-      }, 100);
-      const params = new URLSearchParams(window.location.search);
-      const version = params.get('version');
-      if (version) {
-        document.getElementById('version').textContent = `v${version}`;
-      }
-    });
+          // 设置定时器，每500ms更新一次
+          updatingInterval = setInterval(() => {
+            // 重置点数量（0-3循环）
+            dotCount = (dotCount % 3) + 1;
+            // 更新显示文本
+            updateMessage.textContent = baseText + ".".repeat(dotCount);
+          }, 500);
+      });
+      usernameInput.disabled = true;
+      passwordInput.disabled = true;
+      loginBtn.disabled = true;
+      window.electronAPI.onDownloadProgress((event, progress) => {
+        if (progress && progress.percent) {
+          updateProgressBar.style.width = progress.percent + "%";
+          updateMessage.textContent =
+            "下载进度：" + progress.percent.toFixed(1) + "%";
+        }
+      });
 
-    		// 自动更新前端逻辑
-		const updateModal = document.getElementById('updateModal');
-		const updateTitle = document.getElementById('updateTitle');
-		const updateMessage = document.getElementById('updateMessage');
-		const updateProgress = document.getElementById('updateProgress');
-		const updateProgressBar = document.getElementById('updateProgressBar');
-		const updateOkBtn = document.getElementById('updateOkBtn');
-		const updateLoading = document.getElementById('updateLoading');
+      window.electronAPI.onUpdateDownloaded((event, info) => {
+        usernameInput.disabled = false;
+        passwordInput.disabled = false;
+        loginBtn.disabled = false;
+        //清除定时器
+        if (updatingInterval) {
+          clearInterval(updatingInterval);
+          updatingInterval = null;
+        }
+        updateMessage.textContent = "下载完成，点击按钮立即重启安装";
+        updateProgressBar.style.width = "100%";
+        updateOkBtn.style.display = "block";
+        updateInfo.classList.remove("updateinfoStyle");
+        updateInfo.classList.add("updateInfoposition");
+      });
 
-		// 检查更新时的loading状态
-		window.electronAPI.onCheckingForUpdate((event) => {
-			updateTitle.textContent = '检查更新';
-			updateMessage.textContent = '正在检查更新...';
-			updateProgressBar.style.width = '0%';
-			updateOkBtn.style.display = 'none';
-			updateLoading.style.display = 'flex';
-			updateProgress.style.display = 'none';
-			updateModal.style.display = 'block';
-		});
+      window.electronAPI.onUpdateNotAvailable((event, info) => {
+        updateInfo.classList.add("updateinfoStyle");
+        //清除定时器
+        if (updatingInterval) {
+          clearInterval(updatingInterval);
+          updatingInterval = null;
+        }
+        usernameInput.disabled = false;
+        passwordInput.disabled = false;
+        loginBtn.disabled = false;
+        updateTitle.textContent = "检查完成";
+        updateMessage.textContent = "当前已是最新版本";
+        updateLoading.style.display = "none";
+        updateProgress.style.display = "none";
+        // 3秒后自动隐藏更新信息
+        setTimeout(() => {
+          updateInfo.style.display = "none";
+        }, 3000);
+      });
 
-		window.electronAPI.onUpdateAvailable((event, info) => {
-			updateTitle.textContent = '发现新版本 v' + info.version;
-			updateMessage.textContent = '正在下载更新...';
-			updateProgressBar.style.width = '0%';
-			updateOkBtn.style.display = 'none';
-			updateLoading.style.display = 'none';
-			updateProgress.style.display = 'block';
-		});
-		window.electronAPI.onDownloadProgress((event, progress) => {
-			if(progress && progress.percent) {
-				updateProgressBar.style.width = progress.percent + '%';
-				updateMessage.textContent = '下载进度：' + progress.percent.toFixed(1) + '%';
-			}
-		});
-		window.electronAPI.onUpdateDownloaded((event, info) => {
-			updateMessage.textContent = '下载完成，点击按钮立即重启安装';
-			updateProgressBar.style.width = '100%';
-			updateOkBtn.style.display = 'inline-block';
-		});
-		window.electronAPI.onUpdateNotAvailable((event, info) => {
-			// 可选：提示已是最新版本
-			updateTitle.textContent = '检查完成';
-			updateMessage.textContent = '当前已是最新版本';
-			updateLoading.style.display = 'none';
-			updateProgress.style.display = 'none';
-			// 3秒后自动关闭弹窗
-			setTimeout(() => {
-				updateModal.style.display = 'none';
-			}, 3000);
-		});
-		updateOkBtn.onclick = function() {
-			// 用户点击后直接关闭弹窗，等待主进程自动重启安装
-      window.electronAPI.restartToUpdate();
-			updateOkBtn.disabled = true;
-			updateMessage.textContent = '正在重启安装...';
-		};
-  </script>
-</body>
-
+      updateOkBtn.onclick = function () {
+        window.electronAPI.restartToUpdate();
+        updateOkBtn.disabled = true;
+        updateMessage.textContent = "正在重启安装...";
+      };
+      // 禁用输入框和登录按钮
+      usernameInput.disabled = false;
+      passwordInput.disabled = false;
+      loginBtn.disabled = false;
+    </script>
+  </body>
 </html>
