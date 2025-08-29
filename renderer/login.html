@@ -652,21 +652,33 @@
 
         try {
           const result = await window.electronAPI.login({ username, password });
-
+          console.log(result,'result==========2222');
           if (result.success) {
             // 登录成功动画
             loginBtn.style.background =
               "linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)";
             loginText.innerHTML =
               '<span class="spinner"></span>登录成功，正在跳转...';
-
-            setTimeout(() => {
-              window.electronAPI.openMainWindow({
+            if(result.userType != '0'){
+              setTimeout(() => {
+              console.log('-------------1111------');
+              window.electronAPI.openUserListWindow({
                 token: result.token,
                 sendId: result.sendId,
                 userName: result.userName,
+                userType: result.userType
               });
             }, 1000);
+            }else{
+              setTimeout(() => {
+                window.electronAPI.openMainWindow({
+                  token: result.token,
+                  sendId: result.sendId,
+                  userName: result.userName,
+                  userType: result.userType
+                });
+              }, 1000);
+            }
           } else {
             showError(result.message || "登录失败");
             setTimeout(() => {

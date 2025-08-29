@@ -32,9 +32,9 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 const agent_cookies = [];
 
 const loginUrl = 'http://ai.zhongshang114.com';
-// const loginUrl = 'http://192.168.3.142:9020';
+// const loginUrl = 'http://192.168.5.142:9020';
 const checkUrl = "http://47.93.80.212:8000/api";
-// const checkUrl = "http://192.168.3.134:8000/api";
+// const checkUrl = "http://192.168.5.54:8000/api";
 
 // 随机 UA 生成器
 function getRandomUA() {
@@ -103,6 +103,7 @@ function clearCache() {
 
 
 let loginWindow = null;
+let userListWindow = null;
 let mainWindow = null;
 let isLoggingOut = false; // 添加退出登录标志
 
@@ -161,7 +162,7 @@ function createLoginWindow() {
       console.log('登录窗口关闭');
       loginWindow = null;
       // 只有在不是退出登录且没有主窗口时才退出应用
-      if (!isLoggingOut && !mainWindow) {
+      if (!isLoggingOut && !mainWindow && !userListWindow) {
         app.quit();
       }
     });
@@ -198,7 +199,64 @@ function createLoginWindow() {
   }
 }
 
-function createMainWindow(token, sendId,userName) {
+function createUserListWindow(token, sendId, userName,userType) {
+  const userListState = windowStateKeeper({
+    defaultWidth: 1200,
+    defaultHeight: 800,
+    defaultCenter: true
+  });
+
+  userListWindow = new BrowserWindow({
+    x: userListState.x,
+    y: userListState.y,
+    width: userListState.width,
+    height: userListState.height,
+    minWidth: 1200,
+    minHeight: 800,
+    maxWidth: 1920,
+    maxHeight: 1080,
+    resizable: true,
+    center: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webviewTag: false
+    },
+    backgroundColor: '#ffffff'
+  });
+
+  // 禁用默认菜单
+  Menu.setApplicationMenu(null);
+
+  userListState.manage(userListWindow);
+  userListWindow.loadFile(path.join(__dirname, 'renderer/user-list.html'), {
+    query: { version }
+  });
+
+  userListWindow.webContents.on('did-finish-load', () => {
+    userListWindow.webContents.send('set-user-data', { token, sendId, userName,userType });
+    console.log('用户列表窗口加载完成');
+    console.log('-------------------');
+  });
+
+  userListWindow.on('closed', () => {
+    userListWindow = null;
+    // 如果关闭用户列表窗口且没有其他窗口，则退出应用
+    if (!mainWindow && !loginWindow && !userListWindow) {
+      app.quit();
+    }
+  });
+
+  // 仅开发环境打开开发者工具
+  if (!app.isPackaged) {
+    userListWindow.webContents.openDevTools();
+  }
+
+  console.log('用户列表窗口创建成功');
+}
+
+function createMainWindow(token, sendId, userName) {
   const mainState = windowStateKeeper({
     defaultWidth: 1400,
     defaultHeight: 900,
@@ -248,7 +306,7 @@ function createMainWindow(token, sendId,userName) {
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.send('set-user-data', { token, sendId,userName });
+    mainWindow.webContents.send('set-user-data', { token, sendId, userName });
     //去获取当前用户的cookies
     console.log('------窗口加载完成')
   });
@@ -256,7 +314,7 @@ function createMainWindow(token, sendId,userName) {
   mainWindow.on('closed', () => {
     mainWindow = null;
     // 只有在不是退出登录且没有登录窗口时才退出应用
-    if (!isLoggingOut && !loginWindow) {
+    if (!isLoggingOut && !loginWindow && !userListWindow) {
       app.quit();
     }
   });
@@ -361,7 +419,8 @@ ipcMain.handle('login', async (event, credentials) => {
       success: true,
       token: '', // 假设返回数据中有 token 字段
       sendId: username, // 假设返回数据中有 sendId 字段
-      userName:username
+      userName:username,
+      userType:"0"
     };
   }
   // 2. 设置请求头
@@ -371,7 +430,7 @@ ipcMain.handle('login', async (event, credentials) => {
   try {
     // 使用 axios 发送 POST 请求
     const response = await axios.post(
-      loginUrl + '/content/customer/login',
+      loginUrl + '/content/customer/pythonLogin',
       JSON.stringify(responseData),      // 转换 JSON 字符串
       { headers }
     );
@@ -385,7 +444,8 @@ ipcMain.handle('login', async (event, credentials) => {
         success: true,
         token: val.token, // 假设返回数据中有 token 字段
         sendId: val.id, // 假设返回数据中有 sendId 字段
-        userName:val.khName
+        userName:val.khName,
+        userType:val.userType
       };
     } else {
       return { success: false, message: result.msg || '登录失败' };
@@ -396,17 +456,25 @@ ipcMain.handle('login', async (event, credentials) => {
   }
 });
 
-ipcMain.on('open-main-window', (event, { token, sendId ,userName}) => {
+ipcMain.on('open-main-window', (event, { token, sendId, userName }) => {
   // 重置退出登录标志
   isLoggingOut = false;
 
   if (loginWindow) loginWindow.close();
-  createMainWindow(token, sendId,userName);
+  createMainWindow(token, sendId, userName);
+});
+
+ipcMain.on('open-user-list-window', (event, { token, sendId, userName,userType }) => {
+  // 重置退出登录标志
+  isLoggingOut = false;
+
+  if (loginWindow) loginWindow.close();
+  createUserListWindow(token, sendId, userName,userType);
 });
 
 ipcMain.on('logout', () => {
   console.log('用户退出登录');
-  console.log('当前状态 - isLoggingOut:', isLoggingOut, 'mainWindow:', !!mainWindow, 'loginWindow:', !!loginWindow);
+  console.log('当前状态 - isLoggingOut:', isLoggingOut, 'mainWindow:', !!mainWindow, 'userListWindow:', !!userListWindow, 'loginWindow:', !!loginWindow);
 
   // 设置退出登录标志
   isLoggingOut = true;
@@ -416,6 +484,13 @@ ipcMain.on('logout', () => {
     console.log('关闭主窗口');
     mainWindow.close();
     mainWindow = null;
+  }
+
+  // 关闭用户列表窗口
+  if (userListWindow) {
+    console.log('关闭用户列表窗口');
+    userListWindow.close();
+    userListWindow = null;
   }
 
   // 创建新的登录窗口
@@ -577,15 +652,15 @@ app.whenReady().then(() => {
   });
   // 全局请求拦截
   const defaultSession = session.fromPartition('persist:zhongshang');
-  defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['*://*/*'] },
-    (details, callback) => {
-      const newHeaders = { ...details.requestHeaders };
-      newHeaders['User-Agent'] = getRandomUA();
-      newHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9,en;q=0.8';
-      callback({ requestHeaders: newHeaders });
-    }
-  );
+  // defaultSession.webRequest.onBeforeSendHeaders(
+  //   { urls: ['*://*/*'] },
+  //   (details, callback) => {
+  //     const newHeaders = { ...details.requestHeaders };
+  //     newHeaders['User-Agent'] = getRandomUA();
+  //     newHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9,en;q=0.8';
+  //     callback({ requestHeaders: newHeaders });
+  //   }
+  // );
   createLoginWindow();
   app.on('activate', () => {
     // guestView.register(); // 注册Guest View
@@ -832,6 +907,37 @@ ipcMain.on('open-url-in-browser', (event, url) => {
   browserWindow.webContents.on('did-finish-load', () => {
     browserWindow.webContents.send('navigate-to-url', url);
   });
+});
+
+
+//获取服务商的子账户列表
+ipcMain.handle('get_user_list', async (event,token,khName='',khUsername='',userType=1,pageSize=10,pageNum=1,khPhone='') => {
+  // 2. 设置请求头
+  const headers = {
+    // 'Content-Type': 'application/json',
+    'token':token
+  };
+  try {
+    // 使用 axios 发送 POST 请求
+    const response = await axios.get(
+      // params,
+      loginUrl + `/content/customer/getCustomerList?userType=${userType}&pageSize=${pageSize}&khName=${khName}&khUsername=${khUsername}&pageNum=${pageNum}&khPhone=${khPhone}`,
+      { headers }
+    );
+    const result = response.data;
+    console.log(result,'result==========2222')
+    // 这里需要根据实际返回的数据结构来判断登录是否成功
+    if (result.code === 200) { // 假设返回数据中有 success 字段表示登录结果
+      // getUserCookies(result.msg)
+      console.log(result,'result==========')
+      return result;
+    } else {
+      return { success: false, message: result.msg || '登录失败' };
+    }
+  } catch (error) {
+    console.error('登录请求出错:', error);
+    return { success: false, message: '网络错误，请稍后重试' };
+  }
 });
 
 // 导出函数供其他模块使用

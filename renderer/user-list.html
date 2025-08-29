@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>用户列表 - 授权工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial,
+                sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .user-list-container {
+            width: 100vw;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 0;
+            box-shadow: none;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+            animation: slideUp 0.6s ease-out;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 关闭按钮样式 */
+        .close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 28px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+            border: none;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .close-btn:active {
+            transform: scale(0.95);
+        }
+
+        .close-btn::before,
+        .close-btn::after {
+            content: "";
+            position: absolute;
+            width: 14px;
+            height: 2px;
+            background: white;
+            border-radius: 1px;
+        }
+
+        .close-btn::before {
+            transform: rotate(45deg);
+        }
+
+        .close-btn::after {
+            transform: rotate(-45deg);
+        }
+
+        .user-list-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 25px 20px;
+            position: relative;
+            flex-shrink: 0;
+            min-height: 0;
+        }
+
+        .user-list-header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .user-list-header p {
+            margin-top: 5px;
+            font-size: 12px;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .user-list-body {
+            padding: 25px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e1e8ed;
+        }
+
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .user-table th {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            font-weight: 600;
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            font-size: 14px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .user-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f3f4;
+            font-size: 14px;
+            color: #495057;
+            transition: background-color 0.2s ease;
+        }
+
+        .user-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .user-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
+        .user-list-footer {
+            text-align: center;
+            padding: 15px;
+            font-size: 11px;
+            color: #888;
+            border-top: 1px solid #f0f0f0;
+            background: #fafbfc;
+            flex-shrink: 0;
+        }
+
+        /* 分页组件样式 */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e8ed;
+            gap: 15px;
+        }
+
+        .pagination-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .page-size-selector select {
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            color: #495057;
+            cursor: pointer;
+        }
+
+        .page-size-selector select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            background: white;
+            color: #495057;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination-btn.active:hover {
+            background: #5a6fd8;
+        }
+
+        .page-input {
+            width: 50px;
+            padding: 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .page-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .go-to-page {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .go-to-page input {
+            width: 50px;
+            padding: 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .go-to-page button {
+            padding: 6px 12px;
+            border: 1px solid #667eea;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .go-to-page button:hover {
+            background: #5a6fd8;
+            border-color: #5a6fd8;
+        }
+
+        .welcome-message {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 8px;
+            border: 1px solid #90caf9;
+            color: #1565c0;
+        }
+
+        .welcome-message h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+                 .welcome-message p {
+             font-size: 13px;
+             opacity: 0.9;
+         }
+
+         /* 搜索框样式 */
+         .search-container {
+             background: white;
+             border-radius: 12px;
+             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+             border: 1px solid #e1e8ed;
+             margin-bottom: 20px;
+             padding: 20px;
+         }
+
+         .search-row {
+             display: flex;
+             align-items: center;
+             gap: 20px;
+             flex-wrap: wrap;
+         }
+
+         .search-item {
+             display: flex;
+             flex-direction: row;
+             align-items: center;
+             gap: 8px;
+             min-width: 200px;
+         }
+
+         .search-item label {
+             font-size: 14px;
+             font-weight: 500;
+             color: #495057;
+             min-width: 80px;
+             text-align: right;
+         }
+
+         .search-item input {
+             padding: 10px 12px;
+             border: 1px solid #ced4da;
+             border-radius: 6px;
+             font-size: 14px;
+             transition: all 0.2s ease;
+             background: white;
+             flex: 1;
+             min-width: 120px;
+         }
+
+         .search-item input:focus {
+             outline: none;
+             border-color: #667eea;
+             box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+         }
+
+         .search-actions {
+             display: flex;
+             gap: 12px;
+             align-items: flex-end;
+             margin-left: auto;
+         }
+
+         .search-btn, .reset-btn {
+             padding: 10px 20px;
+             border: none;
+             border-radius: 6px;
+             font-size: 14px;
+             font-weight: 500;
+             cursor: pointer;
+             transition: all 0.2s ease;
+             min-width: 80px;
+         }
+
+         .search-btn {
+             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+             color: white;
+             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+         }
+
+         .search-btn:hover {
+             transform: translateY(-1px);
+             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+         }
+
+         .reset-btn {
+             background: #f8f9fa;
+             color: #495057;
+             border: 1px solid #ced4da;
+         }
+
+         .reset-btn:hover {
+             background: #e9ecef;
+             border-color: #adb5bd;
+         }
+
+        /* 拖拽区域样式 */
+        .drag-area {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-app-region: drag;
+            app-region: drag;
+            z-index: 1000;
+            border-radius: 8px 8px 0 0;
+        }
+
+        /* 调整容器位置，避免被拖拽区域遮挡 */
+        .user-list-container {
+            margin-top: 30px;
+        }
+
+                 /* 响应式设计 */
+         @media (max-width: 768px) {
+             .user-list-body {
+                 padding: 15px;
+             }
+
+             .search-row {
+                 flex-direction: column;
+                 align-items: stretch;
+                 gap: 15px;
+             }
+
+             .search-item {
+                 min-width: auto;
+                 flex-direction: column;
+                 align-items: stretch;
+             }
+
+             .search-item label {
+                 text-align: left;
+                 min-width: auto;
+             }
+
+             .search-actions {
+                 margin-left: 0;
+                 justify-content: center;
+             }
+
+             .user-table th,
+             .user-table td {
+                 padding: 12px 15px;
+                 font-size: 13px;
+             }
+
+             .action-btn {
+                 padding: 6px 12px;
+                 font-size: 12px;
+             }
+         }
+
+        @media (max-width: 480px) {
+            .user-list-header h1 {
+                font-size: 18px;
+            }
+
+            .user-list-header p {
+                font-size: 11px;
+            }
+
+            .welcome-message h3 {
+                font-size: 14px;
+            }
+
+            .welcome-message p {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- 拖拽区域 -->
+        <div class="drag-area" id="dragArea"></div>
+
+        <!-- 用户列表容器 -->
+        <div class="user-list-container">
+            <!-- 关闭按钮 -->
+            <!-- <button class="close-btn" id="closeBtn" title="关闭"></button> -->
+
+            <div class="user-list-header">
+                <h1>用户列表</h1>
+                <p>选择用户进入主页面</p>
+            </div>
+
+            <div class="user-list-body">
+                                 <!-- 欢迎信息 -->
+                 <div class="welcome-message">
+                     <h3>欢迎回来！</h3>
+                     <p>请选择要操作的用户账户</p>
+                 </div>
+
+                 <!-- 搜索框 -->
+                 <div class="search-container">
+                     <div class="search-row">
+                         <div class="search-item">
+                             <label for="khUsernameSearch">用户名：公司名称：</label>
+                             <input type="text" id="khUsernameSearch" placeholder="请输入用户名" />
+                         </div>
+                         <div class="search-item">
+                            <label for="khNameSearch">公司名称：</label>
+                            <input type="text" id="khNameSearch" placeholder="请输入公司名称" />
+                        </div>
+                         <div class="search-item">
+                             <label for="khPhoneSearch">手机号：</label>
+                             <input type="text" id="khPhoneSearch" placeholder="请输入手机号" />
+                         </div>
+                         <div class="search-actions">
+                             <button class="search-btn" id="searchBtn">搜索</button>
+                             <button class="reset-btn" id="resetBtn">重置</button>
+                         </div>
+                     </div>
+                 </div>
+
+                <!-- 表格容器 -->
+                <div class="table-container">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>用户名</th>
+                                <th>公司简称</th>
+                                <th>过期时间</th>
+                                <th>用户手机号</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <!-- 用户数据将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页组件 -->
+                <div class="pagination-container">
+                    <div class="pagination-info">
+                        <span>共 <span id="totalCount">0</span> 条记录</span>
+                        <span>第 <span id="currentPage">1</span> 页，共 <span id="totalPages">1</span> 页</span>
+                    </div>
+
+                    <div class="page-size-selector">
+                        <span>每页显示：</span>
+                        <select id="pageSizeSelect">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                        <span>条</span>
+                    </div>
+
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="firstPage" title="第一页">«</button>
+                        <button class="pagination-btn" id="prevPage" title="上一页">‹</button>
+
+                        <div id="pageNumbers" class="pagination-controls">
+                            <!-- 页码按钮将通过JavaScript动态生成 -->
+                        </div>
+
+                        <button class="pagination-btn" id="nextPage" title="下一页">›</button>
+                        <button class="pagination-btn" id="lastPage" title="最后一页">»</button>
+                    </div>
+
+                    <div class="go-to-page">
+                        <span>跳转到：</span>
+                        <input type="number" id="goToPageInput" min="1" value="1">
+                        <span>页</span>
+                        <button id="goToPageBtn">确定</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-list-footer">
+                © 2025 授权工具 - 专业的内容管理解决方案
+            </div>
+        </div>
+    </div>
+
+    <script>
+                 let currentUserData = null;
+         let currentPage = 1;
+         let pageSize = 10;
+         let totalPages = 1;
+         let totalCount = 0;
+         let token = '';
+         let userType = 0;
+         let searchParams = {
+             khName: '',
+             khUsername: '',
+             khPhone: ''
+         };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initializePage();
+        });
+
+        function initializePage() {
+            // 获取用户数据
+            if (window.electronAPI && window.electronAPI.setUserData) {
+                window.electronAPI.setUserData((event, userData) => {
+                    console.log('收到用户数据:', userData);
+                    token = userData.token;
+                    userType = userData.userType;
+                    // 异步获取用户列表
+                    window.electronAPI.getUserList(token, '', '', userType, pageSize, currentPage).then(result => {
+                        console.log(result, 'result==========2222');
+                        currentUserData = result.data.rows;
+                        totalCount = result.data.total || 0;
+                        totalPages = Math.ceil(totalCount / pageSize);
+                        console.log('用户数据:', currentUserData);
+                        console.log('总数:', totalCount, '总页数:', totalPages);
+                        renderUserTable();
+                    }).catch(error => {
+                        console.error('获取用户列表失败:', error);
+                        // 使用测试数据作为备选
+                        currentUserData = [
+                            { "userName": "测试用户1", "sendId": "13800138001", "token": "test-token-1", "id": 1, "companyName": "测试公司1", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户2", "sendId": "13800138002", "token": "test-token-2", "id": 2, "companyName": "测试公司2", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户3", "sendId": "13800138003", "token": "test-token-3", "id": 3, "companyName": "测试公司3", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户4", "sendId": "13800138004", "token": "test-token-4", "id": 4, "companyName": "测试公司4", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户5", "sendId": "13800138005", "token": "test-token-5", "id": 5, "companyName": "测试公司5", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户6", "sendId": "13800138006", "token": "test-token-6", "id": 6, "companyName": "测试公司6", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户7", "sendId": "13800138007", "token": "test-token-7", "id": 7, "companyName": "测试公司7", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户8", "sendId": "13800138008", "token": "test-token-8", "id": 8, "companyName": "测试公司8", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户9", "sendId": "13800138009", "token": "test-token-9", "id": 9, "companyName": "测试公司9", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户10", "sendId": "13800138010", "token": "test-token-10", "id": 10, "companyName": "测试公司10", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户11", "sendId": "13800138011", "token": "test-token-11", "id": 11, "companyName": "测试公司11", "expiredTime": "2025-01-01" },
+                            { "userName": "测试用户12", "sendId": "13800138012", "token": "test-token-12", "id": 12, "companyName": "测试公司12", "expiredTime": "2025-01-01" }
+                        ];
+                        renderUserTable();
+                    });
+                });
+            } else {
+                // 如果没有API，使用测试数据
+                console.log('使用测试数据');
+                currentUserData = [
+                    { "userName": "测试用户1", "sendId": "13800138001", "token": "test-token-1", "id": 1, "companyName": "测试公司1", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户2", "sendId": "13800138002", "token": "test-token-2", "id": 2, "companyName": "测试公司2", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户3", "sendId": "13800138003", "token": "test-token-3", "id": 3, "companyName": "测试公司3", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户4", "sendId": "13800138004", "token": "test-token-4", "id": 4, "companyName": "测试公司4", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户5", "sendId": "13800138005", "token": "test-token-5", "id": 5, "companyName": "测试公司5", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户6", "sendId": "13800138006", "token": "test-token-6", "id": 6, "companyName": "测试公司6", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户7", "sendId": "13800138007", "token": "test-token-7", "id": 7, "companyName": "测试公司7", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户8", "sendId": "13800138008", "token": "test-token-8", "id": 8, "companyName": "测试公司8", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户9", "sendId": "13800138009", "token": "test-token-9", "id": 9, "companyName": "测试公司9", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户10", "sendId": "13800138010", "token": "test-token-10", "id": 10, "companyName": "测试公司10", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户11", "sendId": "13800138011", "token": "test-token-11", "id": 11, "companyName": "测试公司11", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户12", "sendId": "13800138012", "token": "test-token-12", "id": 12, "companyName": "测试公司12", "expiredTime": "2025-01-01" }
+                ];
+                renderUserTable();
+            }
+        }
+
+        // // 绑定关闭按钮事件
+        // const closeBtn = document.getElementById('closeBtn');
+        // closeBtn.addEventListener('click', () => {
+        //   if (window.electronAPI && window.electronAPI.closeWindow) {
+        //     window.electronAPI.closeWindow();
+        //   } else {
+        //     window.close();
+        //   }
+        // });
+
+                 // 绑定分页事件
+         bindPaginationEvents();
+
+         // 绑定搜索事件
+         bindSearchEvents();
+
+        // 绑定键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // 关闭窗口
+                if (window.electronAPI && window.electronAPI.closeWindow) {
+                    window.electronAPI.closeWindow();
+                } else {
+                    window.close();
+                }
+            }
+        });
+
+        // 页面加载动画
+        const container = document.querySelector('.user-list-container');
+        container.style.opacity = '0';
+        container.style.transform = 'translateY(30px)';
+
+        setTimeout(() => {
+            container.style.transition = 'all 0.6s ease-out';
+            container.style.opacity = '1';
+            container.style.transform = 'translateY(0)';
+        }, 100);
+
+
+        function renderUserTable() {
+            const tableBody = document.getElementById('userTableBody');
+
+            if (!currentUserData || !Array.isArray(currentUserData)) {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #666;">暂无用户数据</td></tr>';
+                updatePagination();
+                return;
+            }
+
+            // 生成用户数据行
+            tableBody.innerHTML = '';
+
+            if (currentUserData.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #666;">当前页暂无数据</td></tr>';
+            } else {
+                currentUserData.forEach((user, index) => {
+                    const userRow = document.createElement('tr');
+                    userRow.innerHTML = `
+                <td>${user.khUsername || '未知用户'}</td>
+                <td>${user.khName || '未知公司'}</td>
+                <td>${user.endTime || '未知时间'}</td>
+                <td>${user.khPhone || '未知ID'}</td>
+                <td>
+                  <button class="action-btn" onclick="openMainWindow('${token}', '${user.id}', '${user.khName}')">
+                    进入主页
+                  </button>
+                </td>
+              `;
+                    tableBody.appendChild(userRow);
+                });
+            }
+
+            // 更新分页信息
+            updatePagination();
+        }
+
+        function openMainWindow(token, sendId, userName) {
+            if (window.electronAPI && window.electronAPI.openMainWindow) {
+                // 调用主进程打开主窗口
+                window.electronAPI.openMainWindow({
+                    token: token,
+                    sendId: sendId,
+                    userName: userName
+                });
+            } else {
+                console.error('无法打开主窗口：缺少必要数据或API');
+            }
+        }
+
+                 // 重新获取用户数据
+         function fetchUserData() {
+             if (!token) {
+                 console.error('缺少token，无法获取用户数据');
+                 return;
+             }
+
+             // 使用搜索参数
+             const khName = searchParams.khName || '';
+             const khUsername = searchParams.khUsername || '';
+             const khPhone = searchParams.khPhone || '';
+
+             window.electronAPI.getUserList(token, khName, khUsername, userType, pageSize, currentPage, khPhone).then(result => {
+                 console.log('获取用户数据成功:', result);
+                 currentUserData = result.data.rows;
+                 totalCount = result.data.total || 0;
+                 totalPages = Math.ceil(totalCount / pageSize);
+                 renderUserTable();
+             }).catch(error => {
+                 console.error('获取用户列表失败:', error);
+                 // 显示错误信息
+                 const tableBody = document.getElementById('userTableBody');
+                 tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #f56565;">获取数据失败，请重试</td></tr>';
+                 updatePagination();
+             });
+                  }
+
+         // 搜索相关函数
+         function bindSearchEvents() {
+             // 搜索按钮
+             document.getElementById('searchBtn').addEventListener('click', () => {
+                 performSearch();
+             });
+
+             // 重置按钮
+             document.getElementById('resetBtn').addEventListener('click', () => {
+                 resetSearch();
+             });
+
+             // 搜索框回车事件
+             document.getElementById('khNameSearch').addEventListener('keypress', (e) => {
+                 if (e.key === 'Enter') {
+                     performSearch();
+                 }
+             });
+
+             document.getElementById('khUsernameSearch').addEventListener('keypress', (e) => {
+                 if (e.key === 'Enter') {
+                     performSearch();
+                 }
+             });
+
+             document.getElementById('khPhoneSearch').addEventListener('keypress', (e) => {
+                 if (e.key === 'Enter') {
+                     performSearch();
+                 }
+             });
+         }
+
+         function performSearch() {
+             // 获取搜索条件
+             searchParams.khName = document.getElementById('khNameSearch').value.trim();
+             searchParams.khUsername = document.getElementById('khUsernameSearch').value.trim();
+             searchParams.khPhone = document.getElementById('khPhoneSearch').value.trim();
+
+             // 重置到第一页
+             currentPage = 1;
+
+             // 执行搜索
+             fetchUserData();
+         }
+
+         function resetSearch() {
+             // 清空搜索框
+             document.getElementById('khNameSearch').value = '';
+             document.getElementById('khUsernameSearch').value = '';
+             document.getElementById('khPhoneSearch').value = '';
+
+             // 重置搜索参数
+             searchParams.khName = '';
+             searchParams.khUsername = '';
+             searchParams.khPhone = '';
+
+             // 重置到第一页
+             currentPage = 1;
+
+             // 重新获取数据
+             fetchUserData();
+         }
+
+         // 分页相关函数
+        function bindPaginationEvents() {
+            // 每页显示数量选择
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            pageSizeSelect.addEventListener('change', (e) => {
+                pageSize = parseInt(e.target.value);
+                currentPage = 1; // 重置到第一页
+                fetchUserData();
+            });
+
+            // 第一页按钮
+            document.getElementById('firstPage').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage = 1;
+                    fetchUserData();
+                }
+            });
+
+            // 上一页按钮
+            document.getElementById('prevPage').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    fetchUserData();
+                }
+            });
+
+            // 下一页按钮
+            document.getElementById('nextPage').addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    fetchUserData();
+                }
+            });
+
+            // 最后一页按钮
+            document.getElementById('lastPage').addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage = totalPages;
+                    fetchUserData();
+                }
+            });
+
+            // 跳转页面按钮
+            document.getElementById('goToPageBtn').addEventListener('click', () => {
+                const input = document.getElementById('goToPageInput');
+                const targetPage = parseInt(input.value);
+
+                if (targetPage >= 1 && targetPage <= totalPages) {
+                    currentPage = targetPage;
+                    fetchUserData();
+                    input.value = currentPage;
+                } else {
+                    alert(`请输入有效的页码 (1-${totalPages})`);
+                    input.value = currentPage;
+                }
+            });
+
+            // 跳转页面输入框回车事件
+            document.getElementById('goToPageInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('goToPageBtn').click();
+                }
+            });
+        }
+
+        function updatePagination() {
+            // 使用服务器返回的总数
+            totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+            // 更新分页信息显示
+            document.getElementById('totalCount').textContent = totalCount;
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+
+            // 更新跳转页面输入框
+            document.getElementById('goToPageInput').value = currentPage;
+
+            // 更新按钮状态
+            document.getElementById('firstPage').disabled = currentPage <= 1;
+            document.getElementById('prevPage').disabled = currentPage <= 1;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages;
+            document.getElementById('lastPage').disabled = currentPage >= totalPages;
+
+            // 生成页码按钮
+            generatePageNumbers();
+        }
+
+        function generatePageNumbers() {
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            const maxVisiblePages = 5; // 最多显示5个页码按钮
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            // 调整起始页，确保显示maxVisiblePages个按钮
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', () => {
+                    currentPage = i;
+                    fetchUserData();
+                });
+                pageNumbersContainer.appendChild(pageBtn);
+            }
+        }
+
+        // 页面加载完成后，如果没有用户数据，显示默认内容
+        setTimeout(() => {
+            if (!currentUserData) {
+                console.log('页面加载完成，使用默认测试数据');
+                currentUserData = [
+                    { "userName": "测试用户1", "sendId": "13800138001", "token": "test-token-1", "id": 1, "companyName": "测试公司1", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户2", "sendId": "13800138002", "token": "test-token-2", "id": 2, "companyName": "测试公司2", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户3", "sendId": "13800138003", "token": "test-token-3", "id": 3, "companyName": "测试公司3", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户4", "sendId": "13800138004", "token": "test-token-4", "id": 4, "companyName": "测试公司4", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户5", "sendId": "13800138005", "token": "test-token-5", "id": 5, "companyName": "测试公司5", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户6", "sendId": "13800138006", "token": "test-token-6", "id": 6, "companyName": "测试公司6", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户7", "sendId": "13800138007", "token": "test-token-7", "id": 7, "companyName": "测试公司7", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户8", "sendId": "13800138008", "token": "test-token-8", "id": 8, "companyName": "测试公司8", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户9", "sendId": "13800138009", "token": "test-token-9", "id": 9, "companyName": "测试公司9", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户10", "sendId": "13800138010", "token": "test-token-10", "id": 10, "companyName": "测试公司10", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户11", "sendId": "13800138011", "token": "test-token-11", "id": 11, "companyName": "测试公司11", "expiredTime": "2025-01-01" },
+                    { "userName": "测试用户12", "sendId": "13800138012", "token": "test-token-12", "id": 12, "companyName": "测试公司12", "expiredTime": "2025-01-01" }
+                ];
+                renderUserTable();
+            }
+        }, 1000);
+    </script>
+</body>
+
+</html>

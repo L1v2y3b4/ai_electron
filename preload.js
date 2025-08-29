@@ -3,7 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   login: (credentials) => ipcRenderer.invoke('login', credentials),
+  getUserList: (token,khName,khUsername,userType,pageSize,pageNum,khPhone) => ipcRenderer.invoke('get_user_list', token,khName,khUsername,userType,pageSize,pageNum,khPhone),
   openMainWindow: (data) => ipcRenderer.send('open-main-window', data),
+  openUserListWindow: (data) => ipcRenderer.send('open-user-list-window', data),
   logout: () => ipcRenderer.send('logout'),
   closeWindow: () => ipcRenderer.send('close-window'),
   moveWindow: (deltaX, deltaY) => ipcRenderer.send('move-window', deltaX, deltaY),
