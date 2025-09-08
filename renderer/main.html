@@ -217,13 +217,14 @@
 		}
 
 		.browser-controls {
-			padding: 15px 25px;
+			padding: 20px 25px;
 			background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 			border-top: 1px solid #dee2e6;
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
 			position: relative;
+			gap: 30px;
 		}
 
 		.browser-controls::before {
@@ -238,8 +239,9 @@
 
 		.control-group {
 			display: flex;
-			gap: 12px;
+			gap: 16px;
 			align-items: center;
+			flex-wrap: wrap;
 		}
 
 		.refresh-btn {
@@ -249,13 +251,14 @@
 			color: white;
 			font-size: 13px;
 			font-weight: 500;
-			padding: 10px 18px;
+			padding: 12px 20px;
 			cursor: pointer;
 			transition: all 0.3s ease;
 			display: flex;
 			align-items: center;
 			gap: 6px;
 			box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+			min-width: 100px;
 		}
 
 		.refresh-btn::before {
@@ -272,12 +275,43 @@
 			transform: translateY(0);
 		}
 
+		.update-auth-btn {
+			background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+			border: none;
+			border-radius: 8px;
+			color: white;
+			font-size: 13px;
+			font-weight: 500;
+			padding: 12px 20px;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+			min-width: 100px;
+		}
+
+		.update-auth-btn::before {
+			content: '🔄';
+			font-size: 14px;
+		}
+
+		.update-auth-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+		}
+
+		.update-auth-btn:active {
+			transform: translateY(0);
+		}
+
 		.logout-btn {
 			background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
 			color: white;
 			border: none;
 			border-radius: 8px;
-			padding: 10px 18px;
+			padding: 12px 20px;
 			cursor: pointer;
 			font-size: 13px;
 			font-weight: 500;
@@ -286,6 +320,7 @@
 			align-items: center;
 			gap: 6px;
 			box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2);
+			min-width: 100px;
 		}
 
 		.logout-btn::before {
@@ -436,13 +471,22 @@
 			}
 
 			.browser-controls {
-				padding: 12px 20px;
+				padding: 15px 20px;
+				flex-direction: column;
+				gap: 15px;
+			}
+
+			.control-group {
+				justify-content: center;
+				gap: 12px;
 			}
 
 			.refresh-btn,
+			.update-auth-btn,
 			.logout-btn {
-				padding: 8px 15px;
+				padding: 10px 16px;
 				font-size: 12px;
+				min-width: 90px;
 			}
 		}
 
@@ -517,12 +561,11 @@
 			<div class="browser-controls">
 				<div class="control-group">
 					<button class="refresh-btn" id="refreshBtn">刷新页面</button>
-					<!-- <div class="status-indicator">
-						<div class="status-dot"></div>
-						<span>已连接</span>
-					</div> -->
+					<button class="update-auth-btn" id="updateAuthBtn">更新授权</button>
 				</div>
-				<button class="logout-btn" id="logoutBtn">退出登录</button>
+				<div class="control-group">
+					<button class="logout-btn" id="logoutBtn">退出登录</button>
+				</div>
 			</div>
 		</div>
 
@@ -730,6 +773,11 @@
 				}else{
 					webview.reload();
 				}
+			});
+
+			// 更新授权按钮
+			document.getElementById('updateAuthBtn').addEventListener('click', () => {
+				updateAuthorization();
 			});
 
 			// 退出登录
@@ -1005,6 +1053,59 @@
 				// 备用方案：使用alert
 				alert(message);
 			}
+		}
+
+		// 更新授权功能
+		function updateAuthorization() {
+			console.log('开始更新授权...');
+			
+			// 显示加载动画
+			showLoading();
+			
+			// 获取当前页面的cookies
+			const webview = document.getElementById('browserView');
+			const currentUrl = webview.getURL();
+			
+			// 根据当前页面获取对应的域名
+			let domain = '';
+			if (currentUrl.includes('baijiahao.baidu.com')) {
+				domain = 'https://baijiahao.baidu.com';
+			} else if (currentUrl.includes('mp.sohu.com')) {
+				domain = 'https://mp.sohu.com';
+			} else if (currentUrl.includes('mp.toutiao.com')) {
+				domain = 'https://mp.toutiao.com';
+			} else if (currentUrl.includes('mp.sina.com.cn')) {
+				domain = 'https://mp.sina.com.cn';
+			} else if (currentUrl.includes('om.qq.com')) {
+				domain = 'https://om.qq.com';
+			} else if (currentUrl.includes('post.smzdm.com')) {
+				domain = 'https://post.smzdm.com';
+			} else {
+				hideLoading();
+				showSuccessMessage('当前页面不支持更新授权');
+				return;
+			}
+			
+			// 获取cookies并发送到后端
+			window.electronAPI.getCookies(domain).then((result) => {
+				console.log('获取到的cookies:', result);
+				
+				// 发送到后端更新授权
+				const result2 = window.electronAPI.checkUserCookies({ 
+					currentNavId, 
+					cookiesList: result, 
+					token, 
+					sendId 
+				});
+				
+				hideLoading();
+				showSuccessMessage('授权更新成功');
+				
+			}).catch((error) => {
+				console.error('更新授权失败:', error);
+				hideLoading();
+				showSuccessMessage('授权更新失败，请重试');
+			});
 		}
 		// 组合监听
 		function setupNavigationListener(callback) {
