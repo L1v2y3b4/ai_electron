@@ -1,0 +1,45 @@
+<svg width='800' height='600' xmlns='http://www.w3.org/2000/svg'>
+  <style>
+    .module { fill: #f0f0f0; stroke: #333; stroke-width: 2 }
+    .arrow { marker-end: url(#arrowhead) }
+    text { font-family: Arial; font-size: 14px }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+
+  <!-- 主进程 -->
+  <rect class='module' x='300' y='50' width='200' height='80' rx='5' />
+  <text x='310' y='85'>主进程 (main.js)</text>
+  <text x='310' y='105'>IPC通信/自动更新</text>
+
+  <!-- 渲染进程 -->
+  <rect class='module' x='50' y='200' width='200' height='80' rx='5' />
+  <text x='60' y='235'>渲染进程</text>
+  <text x='60' y='255'>(renderer/*.html)</text>
+
+  <!-- 预加载脚本 -->
+  <rect class='module' x='300' y='200' width='200' height='80' rx='5' />
+  <text x='310' y='235'>预加载脚本</text>
+  <text x='310' y='255'>(preload.js)</text>
+
+  <!-- 构建脚本 -->
+  <rect class='module' x='550' y='200' width='200' height='80' rx='5' />
+  <text x='560' y='235'>构建脚本</text>
+  <text x='560' y='255'>(scripts/*.js)</text>
+
+  <!-- 数据流向 -->
+  <path class='arrow' d='M250 240 L300 240' />
+  <path class='arrow' d='M500 240 L550 240' />
+  <path class='arrow' d='M400 130 L400 200' />
+  <path class='arrow' d='M400 280 L400 350' />
+  <path class='arrow' d='M300 130 L300 200' />
+
+  <!-- 外部服务 -->
+  <rect class='module' x='200' y='350' width='400' height='80' rx='5' />
+  <text x='210' y='385'>外部服务</text>
+  <text x='210' y='405'>MinIO存储/Prometheus监控</text>
+</svg>
