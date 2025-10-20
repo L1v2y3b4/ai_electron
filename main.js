@@ -747,7 +747,8 @@ async function getUserCookies(sendId) {
       console.log(j, '-------')
       let name = j.name;
       let value = j.value;
-      let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;
+      // let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;
+      let domain = j.domain;
       let secure = j.secure;
       let httpOnly = j.httpOnly;
       let path = j.path
@@ -820,7 +821,8 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
         // console.log('j---------------1111',j)
         let name = j.name;
         let value = j.value;
-        let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;
+        // let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;
+        let domain = j.domain;
         let secure = j.secure;
         let httpOnly = j.httpOnly;
         let path = j.path
