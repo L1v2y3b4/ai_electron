@@ -25,7 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
   onCheckingForUpdate: (callback) => ipcRenderer.on('checking-for-update', callback),
   restartToUpdate: () => ipcRenderer.send('restart-to-update'),
-  
+  getMenuIsAuth: (data) => ipcRenderer.invoke('getMenuIsAuth', data),
+
   // 浏览器相关 API
   openBrowser: () => ipcRenderer.send('open-browser'),
   openUrlInBrowser: (url) => ipcRenderer.send('open-url-in-browser', url),

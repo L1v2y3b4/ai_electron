@@ -32,9 +32,9 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 const agent_cookies = [];
 
 const loginUrl = 'http://ai.zhongshang114.com';
-// const loginUrl = 'http://192.168.5.142:9020';
+// const loginUrl = 'http://192.168.0.38:9020';
 const checkUrl = "http://47.93.80.212:8000/api";
-// const checkUrl = "http://192.168.5.54:8000/api";
+// const checkUrl = "http://192.168.0.39:8000/api";
 
 // 随机 UA 生成器
 function getRandomUA() {
@@ -82,9 +82,9 @@ function clearCache() {
 
     // 清除缓存
     ses.clearCache().then(() => {
-      console.log('---------22222缓存已清除');
+      console.log('---------clearCache true');
     }).catch(err => {
-      console.error('------111112清除缓存失败:', err);
+      console.error('------clearCache fail:', err);
     });
 
     // 只清除临时存储数据，保留必要的本地存储
@@ -456,6 +456,42 @@ ipcMain.handle('login', async (event, credentials) => {
   }
 });
 
+ipcMain.handle('getMenuIsAuth', async (event, data) => {
+  const { id, _type } = data;
+  const zmt_mapping = {
+    "zmt_bjh": 1,
+    "zmt_sohu": 2,
+    "zmt_toutiao": 3,
+    "zmt_wx": 4,
+    "zmt_sina": 5,
+    "zmt_tx": 6,
+    "zmt_zdm": 7,
+    "zmt_wy": 8
+  }
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  const responseData = {
+    id: id,
+    dictValue: _type
+  };
+  console.log(responseData, "划分权限接口")
+  const response = await axios.get(
+    loginUrl + '/content/open/py/date/getMenuIsAuth',{ 
+      headers:headers,
+      params: responseData
+    }
+  );
+  const result = response.data;
+  console.log(result,'权限划分')
+  if (result.code === 200){
+    console.log(result,'result==========')
+    const val = result.data
+    const zmt_id = zmt_mapping[_type];
+    return { [zmt_id]: val === '1' ? true : false }
+  }
+})
+
 ipcMain.on('open-main-window', (event, { token, sendId, userName }) => {
   // 重置退出登录标志
   isLoggingOut = false;
@@ -721,7 +757,7 @@ ipcMain.on('open-url', (event, url) => {
 });
 
 async function getUserCookies(sendId) {
-  console.log('---访问/desktop/save/agent/co/')
+  console.log('---GET /desktop/save/agent/co/')
   // 使用 axios 发送 get 请求
   const response = await axios.get(
     checkUrl + '/desktop/save/agent/co/?send_id=' + sendId
@@ -744,7 +780,7 @@ async function getUserCookies(sendId) {
     }
     const p = i.cookie;
     for (const j of p) {
-      console.log(j, '-------')
+      // console.log(j, '-------')
       let name = j.name;
       let value = j.value;
       // let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;

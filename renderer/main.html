@@ -578,7 +578,7 @@
 				<webview id="browserView" src="./welcome.html"
 					partition="persist:zhongshang" style="display:inline-flex; width:100%; height:100%"
 					disablewebsecurity webpreferences="javascript=yes, contextIsolation=yes" allowpopups
-					useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36">
+					useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36">
 				</webview>
 			</div>
 		</div>
@@ -601,16 +601,16 @@
 			return userAgents[Math.floor(Math.random() * userAgents.length)];
 		}
 		const navItems = [
-			{ id: 0, name: "主页", url: "./welcome.html", icon: "🏠", flag: false },
-			{ id: 2, name: "搜狐", url: "https://mp.sohu.com/mpfe/v4/login", icon: "🦊", flag: false },
-			{ id: 6, name: "腾讯创作", url: "https://om.qq.com/main", icon: "🐧", flag: false },
+			{ id: 0, name: "主页", url: "./welcome.html", icon: "🏠", flag: false, show: true },
+			{ id: 2, name: "搜狐", url: "https://mp.sohu.com/mpfe/v4/login", icon: "🦊", flag: false, show: true },
+			{ id: 6, name: "腾讯创作", url: "https://om.qq.com/main", icon: "🐧", flag: false, show: true },
 			// { id: 7, name: "值得买", url: "https://zhiyou.smzdm.com/user/login?redirect_to=https://post.smzdm.com/tougao/", icon: "🛒", flag: false },
-			{ id: 1, name: "百家号", url: "https://baijiahao.baidu.com/", icon: "📝", flag: false },
-			{ id: 4, name: "微信公众号", url: "http://zs.open.chuangmaedu.com/openPlatform/preAuthCodeHtml/open?id=", icon: "💬", flag: false },
-			{ id: 3, name: "今日头条", url: "https://mp.toutiao.com/auth/page/login", icon: "📰", flag: false },
-			{ id: 5, name: "新浪", url: "https://mp.sina.com.cn/", icon: "🕊️", flag: false },
-			{ id: 8, name: "网易", url: "https://mp.163.com/oauth2/authorize?client_id=fOfFmkq4CF&response_type=code&redirect_uri=http://47.93.80.212:8000/wangyi/callback/?send_id=", icon: "🌐", flag: false },
-
+			{ id: 1, name: "百家号", url: "https://baijiahao.baidu.com/", icon: "📝", flag: false, show: true },
+			{ id: 4, name: "微信公众号", url: "http://zs.open.chuangmaedu.com/openPlatform/preAuthCodeHtml/open?id=", icon: "💬", flag: false, show: true },
+			{ id: 3, name: "今日头条", url: "https://mp.toutiao.com/auth/page/login", icon: "📰", flag: false, show: true },
+			{ id: 5, name: "新浪", url: "https://mp.sina.com.cn/", icon: "🕊️", flag: false, show: true  },
+			{ id: 8, name: "网易", url: "https://mp.163.com/login.html#/", icon: "🌐", flag: false, show: false },
+			// "https://mp.163.com/oauth2/authorize?client_id=fOfFmkq4CF&response_type=code&redirect_uri=http://47.93.80.212:8000/wangyi/callback/?send_id="
 		];
 
 		let token = '';
@@ -630,7 +630,21 @@
 			if (userNameHeader && userName) {
 				userNameHeader.textContent = userName;
 			}
-			initApp();
+			window.electronAPI.getMenuIsAuth({
+				id: sendId,
+				_type: "zmt_wy"
+			}).then(result => {
+				console.log('权限调用结果:', result);
+				navItems.forEach(item => {
+					if(result.hasOwnProperty(item.id) && result[item.id]){
+						item.show = result[item.id]
+					}
+				});
+				initApp();
+			}).catch(error => {
+				console.error('权限调用失败:', error);
+				initApp();
+			});
 		});
 
 		// 初始化拖拽功能
@@ -686,7 +700,7 @@
 			}
 
 			navItems.forEach((item, index) => {
-				if(item.id != 5 && item.id != 3){
+				if(item.id != 5 && item.id != 3 && item.show){
 					const navItem = document.createElement('div');
 					navItem.className = 'nav-item';
 					if (item.id === currentNavId) navItem.classList.add('active');
@@ -725,7 +739,7 @@
 						const randomUA = getRandomUserAgent();
 						window.electronAPI.setWebViewUserAgent(randomUA);
 						if (currentNavId === 4) {
-							console.log(item.url + sendId)
+							// console.log(item.url + sendId)
 							webview.src = item.url + sendId;
 						}else if(currentNavId === 8){
 							webview.src = item.url + sendId;
@@ -802,7 +816,7 @@
 				const url = new URL(currentUrl);
 				// const domain = url.hostname;
 				console.log('-----', url)
-				console.log(currentUrl)
+				// console.log(currentUrl)
 				if (currentUrl.includes('https://mp.toutiao.com/profile_v4/index') || '/profile_v4/index'.includes(currentUrl)) {
 					checkLoginStatus(currentUrl);
 				}
@@ -865,7 +879,7 @@
 						// result 就是 [[PromiseResult]] 中的数组
 						cookiesList = [];
 						cookiesList.push(result);
-						console.log('当前页面的所有cookie:', cookiesList);
+						// console.log('当前页面的所有cookie:', cookiesList);
 						setTimeout(() => {
 							webview.src = "https://passport.baidu.com/";
 						}, 2000);
@@ -881,7 +895,7 @@
 				res = window.electronAPI.getCookies('https://passport.baidu.com');
 				res.then((result) => {
 					cookiesList.push(result);
-					console.log('当前页面的所有cookie:', cookiesList);
+					// console.log('当前页面的所有cookie:', cookiesList);
 					const webview = document.getElementById('browserView');
 					setTimeout(() => {
 						webview.src = "https://agents.baidu.com/";
@@ -893,9 +907,9 @@
 				res.then((result) => {
 					const webview = document.getElementById('browserView');
 					cookiesList.push(result);
-					console.log('当前页面的所有cookie:', cookiesList);
+					// console.log('当前页面的所有cookie:', cookiesList);
 					//去发送后端
-					console.log(currentNavId)
+					// console.log(currentNavId)
 					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
 					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
 					a.flag = true;
@@ -911,9 +925,9 @@
 				res.then((result) => {
 					cookiesList = [];
 					cookiesList.push(...result);
-					console.log('当前页面的所有cookie:', cookiesList);
-					//去发送后端
-					console.log(currentNavId)
+					// console.log('当前页面的所有cookie:', cookiesList);
+					// 去发送后端
+					// console.log(currentNavId)
 					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
 					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
 					a.flag = true;
@@ -925,9 +939,9 @@
 				res.then((result) => {
 					cookiesList = [];
 					cookiesList.push(...result);
-					console.log('当前页面的所有cookie:', cookiesList);
+					// console.log('当前页面的所有cookie:', cookiesList);
 					//去发送后端
-					console.log(currentNavId)
+					// console.log(currentNavId)
 					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
 					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
 					a.flag = true;
@@ -939,9 +953,9 @@
 				res.then((result) => {
 					cookiesList = [];
 					cookiesList.push(...result);
-					console.log('当前页面的所有cookie:', cookiesList);
+					// console.log('当前页面的所有cookie:', cookiesList);
 					//去发送后端
-					console.log(currentNavId)
+					// console.log(currentNavId)
 					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
 					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
 					a.flag = true;
@@ -953,9 +967,9 @@
 				res.then((result) => {
 					cookiesList = [];
 					cookiesList.push(...result);
-					console.log('当前页面的所有cookie:', cookiesList);
+					// console.log('当前页面的所有cookie:', cookiesList);
 					//去发送后端
-					console.log(currentNavId)
+					// console.log(currentNavId)
 					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
 					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
 					a.flag = true;
@@ -1010,6 +1024,20 @@
 					// setTimeout(() => {
 					//   webview.src = "https://zhiyou.smzdm.com/user";
 					// }, 2000);
+					//去发送后端
+					// console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+			if (url.includes('http://mp.163.com/subscribe_v4/index.html#/') && a && !a.flag) {
+				res = window.electronAPI.getCookies('http://mp.163.com');
+				res.then((result) => {
+					cookiesList = [];
+					cookiesList.push(...result);
+					console.log('当前页面的所有cookie:', cookiesList);
 					//去发送后端
 					console.log(currentNavId)
 					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
