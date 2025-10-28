@@ -7,7 +7,7 @@
         "pack": "electron-builder --dir",
         "dist": "electron-builder --win",
         "dist:cn": "$env:ELECTRON_MIRROR='https://npmmirror.com/mirrors/electron/'; $env:ELECTRON_BUILDER_BINARIES_MIRROR='https://npmmirror.com/mirrors/electron-builder-binaries/'; electron-builder --win",
-        "dist:mac": "electron-builder --mac",
+        "dist:mac": "electron-builder --mac --universal",
         "dist:win": "electron-builder --win --publish always",
         "dist:win:local": "electron-builder --win",
         "dist:win7": "electron-builder --win --ia32",

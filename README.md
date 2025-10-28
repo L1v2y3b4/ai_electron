@@ -81,6 +81,9 @@ npm install
 #### 2. 开发环境测试
 
 ```bash
+# 命令行中文显示
+chcp 65001
+
 # 启动开发环境
 npm start
 
