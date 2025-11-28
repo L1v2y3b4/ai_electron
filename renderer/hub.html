@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>账号绑定</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial,
+          sans-serif;
+      }
+
+      body {
+        background: #f5f7fa;
+        display: flex;
+      }
+
+      .hub-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .hub-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 20px;
+        background: white;
+        border-bottom: 1px solid #e9ecef;
+        flex-shrink: 0;
+      }
+
+      .hub-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .hub-header p {
+        font-size: 14px;
+        color: #666;
+      }
+
+      .accounts-section {
+        flex: 1;
+        padding: 20px;
+        background: #f5f7fa;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow: hidden;
+      }
+
+      .accounts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        row-gap: 16px; /* 行间距（上下间距）*/
+        column-gap: 16px; /* 列间距（左右间距）*/
+        width: 100%;
+        /* flex: 1; */
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-top: 10px;
+      }
+
+      .accounts-grid::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .accounts-grid::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .accounts-grid::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+      }
+
+      .accounts-grid::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.3);
+      }
+
+      .account-card {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 18px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        height: fit-content;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .account-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+        border-color: #667eea;
+      }
+
+      .account-card-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .account-icon {
+        font-size: 32px;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(102, 126, 234, 0.1);
+        border-radius: 8px;
+        flex-shrink: 0;
+      }
+
+      .account-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .account-platform {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        word-break: break-word;
+      }
+
+      .account-name {
+        font-size: 12px;
+        color: #999;
+        word-break: break-word;
+      }
+
+      .account-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #28a745;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        background: #28a745;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .account-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid #e9ecef;
+        flex-wrap: wrap;
+      }
+
+      .account-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 70px;
+      }
+
+      .enter-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .enter-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      }
+
+      .delete-btn {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+      }
+
+      .delete-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+      }
+
+      .add-account-btn {
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        flex-shrink: 0;
+        height: fit-content;
+      }
+
+      .add-account-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 40px 20px;
+        text-align: center;
+        background: white;
+        border-radius: 12px;
+        margin: 20px;
+      }
+
+      .empty-icon {
+        font-size: 48px;
+        opacity: 0.5;
+      }
+
+      .empty-text {
+        font-size: 16px;
+        color: #666;
+      }
+
+      .empty-subtext {
+        font-size: 13px;
+        color: #999;
+      }
+
+      @media (max-width: 768px) {
+        .hub-header {
+          padding: 16px;
+        }
+
+        .hub-header h1 {
+          font-size: 20px;
+        }
+
+        .accounts-section {
+          padding: 16px;
+        }
+
+        .accounts-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="hub-container">
+      <div class="hub-header">
+        <div>
+          <h1 id="hubTitle">账号管理</h1>
+          <p id="hubSubtitle">点击下方卡片进入对应账号平台</p>
+        </div>
+      </div>
+      <div class="accounts-section">
+        <div class="accounts-grid" id="accountsGrid"></div>
+      </div>
+    </div>
+
+    <script>
+      let currentMenuId = null;
+      let navItems = [];
+      let accounts = {};
+
+      window.addEventListener("message", (event) => {
+        console.log("[v0] hub.html received message:", event.data);
+        if (event.data.type === "selectMenu") {
+          currentMenuId = event.data.menuId;
+          navItems = event.data.navItems || [];
+          console.log(
+            "[v0] selectMenu - menuId:",
+            currentMenuId,
+            "navItems.length:",
+            navItems.length
+          );
+          renderAccounts();
+        }
+      });
+
+      function renderAccounts() {
+        console.log("[v0] renderAccounts called, menuId:", currentMenuId);
+        const accountsGrid = document.getElementById("accountsGrid");
+
+        console.log("[v0] accountsGrid element:", accountsGrid);
+        console.log("[v0] accountsGrid parent:", accountsGrid?.parentElement);
+
+        if (currentMenuId === null || currentMenuId === undefined) {
+          console.log("[v0] No menuId, showing empty state");
+          showEmptyState();
+          return;
+        }
+        if (currentMenuId === 9) {
+          // 文心智能体的ID
+          // 生成5个固定账号
+          accounts[currentMenuId] = [
+            {
+              id: "wenxin_1",
+              name: "文心智能体账号1",
+              icon: "🤖",
+              status: "pending",
+              menuId: 9,
+            },
+            {
+              id: "wenxin_2",
+              name: "文心智能体账号2",
+              icon: "🤖",
+              status: "pending",
+              menuId: 9,
+            },
+            {
+              id: "wenxin_3",
+              name: "文心智能体账号3",
+              icon: "🤖",
+              status: "pending",
+              menuId: 9,
+            },
+            {
+              id: "wenxin_4",
+              name: "文心智能体账号4",
+              icon: "🤖",
+              status: "pending",
+              menuId: 9,
+            },
+            {
+              id: "wenxin_5",
+              name: "文心智能体账号5",
+              icon: "🤖",
+              status: "pending",
+              menuId: 9,
+            },
+          ];
+        }
+
+        // 查找对应的菜单项
+        const menuItem = navItems.find((item) => item.id === currentMenuId);
+        if (!menuItem) {
+          console.log("[v0] No menuItem found for menuId:", currentMenuId);
+          showEmptyState();
+          return;
+        }
+
+        // 获取或创建账号列表
+        if (!accounts[currentMenuId]) {
+          accounts[currentMenuId] = [];
+          // 确定需要创建的账号数量：百家号(id=1)创建5个，其他平台创建1个
+          const accountCount = currentMenuId === 1 ? 5 : 1;
+
+          // 创建对应数量的未绑定账号
+          for (let i = 1; i <= accountCount; i++) {
+            accounts[currentMenuId].push({
+              id: "pending_" + currentMenuId + "_" + i,
+              name: menuItem.name + "账号" + i,
+              icon: menuItem.icon,
+              status: "pending", // 未绑定状态
+              menuId: currentMenuId,
+            });
+          }
+        }
+
+        const menuAccounts = accounts[currentMenuId];
+        console.log("[v0] Rendering", menuAccounts.length, "accounts");
+        console.log("[v0] Menu accounts:", menuAccounts);
+
+        accountsGrid.innerHTML = "";
+        accountsGrid.style.display = "grid";
+        console.log("[v0] accountsGrid cleared and set display to grid");
+
+        if (menuAccounts.length > 0) {
+          menuAccounts.forEach((account, index) => {
+            console.log("[v0] Creating card for account", index, ":", account);
+            const card = createAccountCard(account, menuItem);
+            accountsGrid.appendChild(card);
+            console.log(
+              "[v0] Card appended, accountsGrid children:",
+              accountsGrid.children.length
+            );
+          });
+        } else {
+          console.log("[v0] No accounts, showing empty state");
+          showEmptyState();
+        }
+
+        console.log(
+          "[v0] renderAccounts finished, final grid children count:",
+          accountsGrid.children.length
+        );
+      }
+
+      function createAccountCard(account, menuItem) {
+        const card = document.createElement("div");
+        card.className = "account-card";
+
+        // 卡片头部
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "account-card-header";
+
+        const iconDiv = document.createElement("div");
+        iconDiv.className = "account-icon";
+        iconDiv.textContent = menuItem.icon;
+
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "account-info";
+
+        const platformName = document.createElement("div");
+        platformName.className = "account-platform";
+        platformName.textContent = account.name;
+
+        const accountDesc = document.createElement("div");
+        accountDesc.className = "account-name";
+        accountDesc.textContent = "账号绑定信息";
+
+        infoDiv.appendChild(platformName);
+        infoDiv.appendChild(accountDesc);
+        headerDiv.appendChild(iconDiv);
+        headerDiv.appendChild(infoDiv);
+
+        // 状态
+        const statusDiv = document.createElement("div");
+        statusDiv.className = "account-status";
+        const statusDot = document.createElement("div");
+        statusDot.className = "status-dot";
+        const statusText = document.createElement("span");
+        statusText.textContent = "已激活";
+        statusDiv.appendChild(statusDot);
+        statusDiv.appendChild(statusText);
+
+        // 操作按钮
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "account-actions";
+
+        const enterBtn = document.createElement("button");
+        enterBtn.className = "account-btn enter-btn";
+        // 根据账号状态显示不同文本
+        enterBtn.textContent = account.status === "pending" ? "去授权" : "进入";
+        enterBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          console.log("[v0] enterWebview clicked for account:", account);
+
+          // 文心智能体账号特殊处理
+          if (account.menuId === 9) {
+            // 发送消息给主窗口，要求打开新窗口
+            window.parent.postMessage(
+              {
+                type: "openWenxinAuth",
+                accountId: account.id,
+                url: "https://agents.baidu.com/center",
+              },
+              "*"
+            );
+          } else {
+            window.parent.postMessage(
+              {
+                type: "enterWebview",
+                menuId: account.menuId,
+                accountId: account.id,
+              },
+              "*"
+            );
+          }
+        });
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "account-btn delete-btn";
+        deleteBtn.textContent = "删除";
+        deleteBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          deleteAccount(account.id);
+        });
+
+        actionsDiv.appendChild(enterBtn);
+        actionsDiv.appendChild(deleteBtn);
+
+        card.appendChild(headerDiv);
+        card.appendChild(statusDiv);
+        card.appendChild(actionsDiv);
+
+        return card;
+      }
+
+      function showEmptyState() {
+        const accountsGrid = document.getElementById("accountsGrid");
+        console.log("[v0] showEmptyState called");
+        accountsGrid.innerHTML = `
+                <div style="grid-column: 1/-1;">
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <div class="empty-text">暂无账号信息</div>
+                        <div class="empty-subtext">点击下方"添加账号"按钮绑定新账号</div>
+                    </div>
+                </div>
+            `;
+      }
+
+      function deleteAccount(accountId) {
+        if (!confirm("确定要删除此账号吗？")) return;
+        if (accounts[currentMenuId]) {
+          accounts[currentMenuId] = accounts[currentMenuId].filter(
+            (acc) => acc.id !== accountId
+          );
+          renderAccounts();
+        }
+      }
+
+      // function addAccount() {
+      //     if (currentMenuId === null || currentMenuId === undefined) {
+      //         alert('请先从左侧菜单选择平台');
+      //         return;
+      //     }
+
+      //     if (!accounts[currentMenuId]) {
+      //         accounts[currentMenuId] = [];
+      //     }
+
+      //     const menuItem = navItems.find(item => item.id === currentMenuId);
+      //     if (!menuItem) return;
+
+      //     const newAccount = {
+      //         id: 'account_' + Date.now(),
+      //         name: menuItem.name + '账号' + (accounts[currentMenuId].length + 1),
+      //         icon: menuItem.icon,
+      //         status: 'active',
+      //         menuId: currentMenuId
+      //     };
+
+      //     accounts[currentMenuId].push(newAccount);
+      //     renderAccounts();
+
+      //     // 通知主窗口需要进行账号绑定
+      //     window.parent.postMessage({
+      //         type: 'addNewAccount',
+      //         menuId: currentMenuId,
+      //         accountId: newAccount.id
+      //     }, '*');
+      // }
+
+      function addAccount() {
+        if (currentMenuId === null || currentMenuId === undefined) {
+          alert("请先从左侧菜单选择平台");
+          return;
+        }
+
+        // 直接发送消息给父窗口，进入对应的webview页面进行账号绑定
+        window.parent.postMessage(
+          {
+            type: "enterWebview",
+            menuId: currentMenuId,
+          },
+          "*"
+        );
+
+        const menuItem = navItems.find((item) => item.id === currentMenuId);
+        if (!menuItem) return;
+
+        const newAccount = {
+          id: "temp_" + Date.now(),
+          name: menuItem.name + "新账号",
+          icon: menuItem.icon,
+          status: "pending",
+          menuId: currentMenuId,
+        };
+
+        // 可以暂时存储这个账号信息，等待绑定完成后再正式添加
+        // 这里我们先注释掉之前的逻辑，直接跳转
+      }
+      showEmptyState();
+    </script>
+  </body>
+</html>
