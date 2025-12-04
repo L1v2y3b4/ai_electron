@@ -577,7 +577,7 @@
 				</div>
 				<webview id="browserView" src="./welcome.html"
 					partition="persist:zhongshang" style="display:inline-flex; width:100%; height:100%"
-					disablewebsecurity webpreferences="javascript=yes, contextIsolation=yes" allowpopups
+					webpreferences="javascript=yes, contextIsolation=yes" allowpopups
 					useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36">
 				</webview>
 			</div>
@@ -618,6 +618,7 @@
 		let currentNavId = 0;
 		let sendFlag = false;
 		let userName = '';
+        let isCollectingLoginSequence = false;
 
 		// 设置用户数据
 		window.electronAPI.setUserData((event, data) => {
@@ -688,6 +689,7 @@
 			// 渲染导航项
 
 			cookiesList = [];
+            agentCookies = [];
 			const navItemsContainer = document.getElementById('navItems');
 			navItemsContainer.innerHTML = '';
 
@@ -832,7 +834,8 @@
 				if (currentUrl.includes('https://om.qq.com/main')) {
 					checkLoginStatus(currentUrl);
 				}
-
+                agentCookies = await window.electronAPI.getAgentCookies();
+                console.log('当前智能体的cookies:', agentCookies)
 			});
 
 			// 监听页面内URL变化（如前端路由）
@@ -863,61 +866,145 @@
 			const loadingOverlay = document.getElementById('loadingOverlay');
 			loadingOverlay.classList.remove('show');
 		}
+        
+   		// 自动按顺序访问百度三个页面并收集 cookie 的辅助函数
+		async function updateLoginStatus() {
+            cookiesList = [];
+			isCollectingLoginSequence = true;
+			showLoading();
+			const webview = document.getElementById('browserView');
+			const steps = [
+				{ url: 'https://baijiahao.baidu.com/builder/rc/home', domain: 'https://baijiahao.baidu.com' },
+				{ url: 'https://passport.baidu.com/v6/ucente', domain: 'https://passport.baidu.com' },
+				{ url: 'https://agents.baidu.com/center', domain: 'https://agents.baidu.com' }
+			];
+			function waitForWebviewLoadOnce() {
+				return new Promise((resolve) => {
+					const onFinish = () => {
+						try { webview.removeEventListener('did-finish-load', onFinish); } catch (e) {}
+						setTimeout(resolve, 2000);
+					};
+					webview.addEventListener('did-finish-load', onFinish);
+				});
+			}
 
+			try {
+				for (let i = 0; i < steps.length; i++) {
+                    const step = steps[i];
+                    try {
+                        webview.src = step.url;
+                        await waitForWebviewLoadOnce();
+                        window.electronAPI.getCookies(step.domain).then((result)=>{
+                            cookiesList.push(result);
+                            console.log('Collected cookies for', step.domain, result);
+                            if (step.url.includes('passport.baidu.com')) {
+                                console.log('写入反向登录的智能体cookie')
+                                window.electronAPI.setCookies({
+                                    targetUrl: 'https://agents.baidu.com',
+                                    cookies: agentCookies,
+                                    domain: '.baidu.com'
+                                }).then(() => {
+                                    console.log("智能体 Cookie 已设置")
+                                    setTimeout(() => {
+                                        webview.src = "https://agents.baidu.com/center";
+                                    }, 3000); 
+                                });
+                            }
+                            if (step.domain.includes('agents.baidu.com')) {
+                                window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId }).then(()=>{
+                                    console.log("跳回 https://baijiahao.baidu.com/builder/rc/home");
+                                    setTimeout(() => {
+                                        webview.src = "https://baijiahao.baidu.com/builder/rc/home";
+                                    }, 2000);
+                                    setTimeout(() => {
+                                        isCollectingLoginSequence = false;
+                                    }, 3000);
+                                    showSuccessMessage("更新授权成功");
+                                })
+                            }
+                        })
+                    } catch (err) {
+                        console.error('Error collecting cookies for', step.domain, err);
+                    }
+                    }
+			} finally {
+				hideLoading();
+			}
+		}
+        
 
 		function checkLoginStatus(url) {
-			console.log('---验证url', url)
-			const a = navItems.find(item => item.id === currentNavId);
-			console.log('-----a------',a)
-			// 根据URL判断是否登录成功
-			if (url.includes('baijiahao.baidu.com/builder/rc/home') && a && !a.flag) {
-				// showSuccessMessage('登录成功');
-				try {
-					res = window.electronAPI.getCookies('https://baijiahao.baidu.com');
-					res.then((result) => {
-						const webview = document.getElementById('browserView');
-						// result 就是 [[PromiseResult]] 中的数组
-						cookiesList = [];
-						cookiesList.push(result);
-						// console.log('当前页面的所有cookie:', cookiesList);
-						setTimeout(() => {
-							webview.src = "https://passport.baidu.com/";
-						}, 2000);
-
-					});
-				} catch (error) {
-					console.error('获取cookie失败:', error);
-				}
-
-				// saveCookies();
+			// 如果自动化流程在运行，跳过页面监控的自动切换/收集逻辑，避免重复/冲突
+			if (isCollectingLoginSequence) {
+				console.log('checkLoginStatus skipped (automation in progress)');
+				return;
 			}
-			if (url.includes('passport.baidu.com/v6/ucente') && a && !a.flag) {
-				res = window.electronAPI.getCookies('https://passport.baidu.com');
-				res.then((result) => {
-					cookiesList.push(result);
-					// console.log('当前页面的所有cookie:', cookiesList);
-					const webview = document.getElementById('browserView');
-					setTimeout(() => {
-						webview.src = "https://agents.baidu.com/";
-					}, 2000);
-				});
-			}
-			if (url.includes('agents.baidu.com/center') && a && !a.flag) {
-				res = window.electronAPI.getCookies('https://agents.baidu.com');
-				res.then((result) => {
-					const webview = document.getElementById('browserView');
-					cookiesList.push(result);
-					// console.log('当前页面的所有cookie:', cookiesList);
-					//去发送后端
-					// console.log(currentNavId)
-					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
-					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
-					a.flag = true;
-					setTimeout(() => {
-						webview.src = "https://baijiahao.baidu.com/builder/rc/home";
-					}, 2000);
-					showSuccessMessage("登录成功");
-				});
+            console.log('---验证url', url)
+            const a = navItems.find(item => item.id === currentNavId);
+            console.log('-----a------',a)
+            // 根据URL判断是否登录成功
+            if (url.includes('baijiahao.baidu.com/builder/rc/home') && a && !a.flag) {
+                // showSuccessMessage('登录成功');
+                try {
+                    res = window.electronAPI.getCookies('https://baijiahao.baidu.com');
+                    res.then((result) => {
+                        const webview = document.getElementById('browserView');
+                        // result 就是 [[PromiseResult]] 中的数组
+                        cookiesList = [];
+                        cookiesList.push(result);
+                        // console.log('当前页面的所有cookie:', cookiesList);
+                        setTimeout(() => {
+                            webview.src = "https://passport.baidu.com/";
+                        }, 2000);
+
+                    });
+                } catch (error) {
+                    console.error('获取cookie失败:', error);
+                }
+
+                // saveCookies();
+            }
+            if (url.includes('passport.baidu.com/v6/ucente') && a && !a.flag) {
+                window.electronAPI.getCookies('https://passport.baidu.com').then((passportCookies) => {
+                    cookiesList.push(passportCookies);
+                    console.log("准备注入cookie")
+                    const webview = document.getElementById('browserView');
+                    window.electronAPI.setCookies({
+                        targetUrl: 'https://agents.baidu.com',
+                        cookies: passportCookies,
+                        domain: '.baidu.com'// 顶级域名
+                    }).then(()=>{
+                        setTimeout(() => {
+                            webview.src = "https://agents.baidu.com/";
+                        }, 2000);
+                    })
+                })
+                // res = window.electronAPI.getCookies('https://passport.baidu.com');
+                // res.then((result) => {
+                // 	cookiesList.push(result);
+                // 	// console.log('当前页面的所有cookie:', cookiesList);
+                // 	const webview = document.getElementById('browserView');
+                // 	setTimeout(() => {
+                // 		webview.src = "https://agents.baidu.com/";
+                // 	}, 2000);
+                // });
+            }
+            if (url.includes('agents.baidu.com/center') && a && !a.flag) {
+                res = window.electronAPI.getCookies('https://agents.baidu.com');
+                res.then((result) => {
+                    const webview = document.getElementById('browserView');
+                    cookiesList.push(result);
+                    // console.log('当前页面的所有cookie:', cookiesList);
+                    //去发送后端
+                    // console.log(currentNavId)
+                    // const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+                    const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+                    a.flag = true;
+                    setTimeout(() => {
+                        webview.src = "https://baijiahao.baidu.com/builder/rc/home";
+                    }, 2000);
+                    showSuccessMessage("登录成功");
+                });
 
 			}
 			if (url.includes('https://mp.sohu.com/mpfe/v4/contentManagement/first/page') && a && !a.flag) {
@@ -1090,7 +1177,6 @@
 			// 显示加载动画
 			showLoading();
 			
-			// 获取当前页面的cookies
 			const webview = document.getElementById('browserView');
 			const currentUrl = webview.getURL();
 			
@@ -1098,7 +1184,16 @@
 			let domain = '';
 			if (currentUrl.includes('baijiahao.baidu.com')) {
 				domain = 'https://baijiahao.baidu.com';
-			} else if (currentUrl.includes('mp.sohu.com')) {
+                try {
+                    updateLoginStatus();
+                } catch (e) {
+                    console.error('调用 updateLoginStatus 失败:', e);
+                }
+                hideLoading();
+				showSuccessMessage('授权更新成功');
+                return;
+			}
+            if (currentUrl.includes('mp.sohu.com')) {
 				domain = 'https://mp.sohu.com';
 			} else if (currentUrl.includes('mp.toutiao.com')) {
 				domain = 'https://mp.toutiao.com';
