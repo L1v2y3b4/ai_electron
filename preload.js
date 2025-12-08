@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   moveWindow: (deltaX, deltaY) => ipcRenderer.send('move-window', deltaX, deltaY),
   setUserData: (callback) => ipcRenderer.on('set-user-data', callback),
   getCookies: (domain) => ipcRenderer.invoke('get-cookies', domain),
+  setCookies: (params) => ipcRenderer.invoke('set-cookies', params),
+  getAgentCookies: () => ipcRenderer.invoke('get-agent-cookies'),
   getAllCookies: (domain) => ipcRenderer.invoke('get-all-cookies', domain),
   setCookie: () => ipcRenderer.invoke('set-cookie'),
   saveCookies: (data) => ipcRenderer.invoke('save-cookies', data),

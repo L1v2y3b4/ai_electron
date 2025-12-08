@@ -29,12 +29,14 @@ const chromiumCachePath = path.join(userDataPath, 'chromium-cache');
 app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 
 //智能体的cookie
-const agent_cookies = [];
+let agent_cookies = [];
+
+
 
 const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://192.168.0.38:9020';
 const checkUrl = "http://47.93.80.212:8000/api";
-// const checkUrl = "http://192.168.0.39:8000/api";
+// const checkUrl = "http://127.0.0.1:8000/api";
 
 // 随机 UA 生成器
 function getRandomUA() {
@@ -128,6 +130,7 @@ function createLoginWindow() {
       resizable: true,
       center: true,
       webPreferences: {
+        webrtc: false, // 禁用视频通话、P2P文件传输
         preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
         contextIsolation: true,
@@ -335,6 +338,32 @@ ipcMain.handle('get-cookies', async (event, domain) => {
   const res = await sess.cookies.get({ url: domain });
   return res;
 });
+
+ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain }) => {
+  const ses = session.fromPartition('persist:zhongshang');
+  try {
+    for (const c of cookies) {
+      await ses.cookies.set({
+        url: targetUrl,
+        name: c.name,
+        value: c.value,
+        domain: c.domain || domain,
+        path: c.path || "/",
+        secure: c.secure ?? true,
+        httpOnly: c.httpOnly ?? false,
+        sameSite: "no_restriction",
+        expirationDate: (Date.now() / 1000) + 60 * 60 * 24 * 30, // 30天
+      });
+    }
+
+    return { ok: true };
+
+  } catch (err) {
+    console.error("cookie set failed:", err);
+    return { ok: false, error: err };
+  }
+});
+
 
 
 
@@ -757,6 +786,7 @@ ipcMain.on('open-url', (event, url) => {
 });
 
 async function getUserCookies(sendId) {
+    // 反向登录
   console.log('---GET /desktop/save/agent/co/')
   // 使用 axios 发送 get 请求
   const response = await axios.get(
@@ -765,14 +795,14 @@ async function getUserCookies(sendId) {
 
   // console.log(response.data)
   const co_list = response.data.data;
-  // console.log(co_list, '11111111111')
+//   console.log(co_list, '11111111111')
   for (const i of co_list) {
     // console.log(i, '0000000000000000000000')
     //智能体的cookies的设置
     console.log(i.url,'i.url====================')
     if (i.url.includes('https://agents.baidu.com')){
       agent_cookies.push(...i.cookie);
-      // console.log(agent_cookies,'------agent_cookies')
+    //   console.log(agent_cookies.length,'------agent_cookies')
       continue;
     }
     if (i.url.includes('https://zhiyou.smzdm.com')){
@@ -817,6 +847,37 @@ ipcMain.on('set-cookie', (event) => {
   console.log('----------------------')
 });
 
+ipcMain.handle("get-agent-cookies", () => {
+  try {
+    const safeCookies = agent_cookies.map(c => {
+      // 返回干净且基础类型的 cookie 对象
+      const clean = {};
+
+      // 强制转换所有字段为基础类型
+      clean.name = String(c.name || "");
+      clean.value = String(c.value || "");
+      clean.domain = String(c.domain || ".baidu.com"); // 确保 domain 总是字符串
+      clean.path = String(c.path || "/");
+      clean.secure = Boolean(c.secure); // 转换为布尔值
+      clean.httpOnly = Boolean(c.httpOnly); // 转换为布尔值
+
+      // 处理 session 和 expirationDate 字段
+      clean.session = Boolean(c.session); // 确保是布尔值
+      clean.expirationDate = c.session ? undefined : (Number(c.expirationDate) || undefined); // 转换 expirationDate 为数字（如果有）
+
+      return clean;
+    });
+
+    console.log("返回清理后的安全 cookie:", safeCookies);
+    return safeCookies; // 返回清理后的 cookie 数组
+
+  } catch (err) {
+    console.error("序列化失败:", err);
+    return []; // 出现异常时返回空数组
+  }
+});
+
+
 ipcMain.on('open-url-in-new-window', async (event, data) => {
   const { url, partition } = data;
   // 1. 创建带分区的新窗口
@@ -842,7 +903,7 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
     backgroundColor: '#ffffff'
   });
   const ses = session.fromPartition(`persist:${partition}`);
-  // console.log('-----persist----',`persist:${partition}`)
+  console.log('-----persist----',`persist:${partition}`)
   // 2. 先清除所有cookie
   // try {
   //   await ses.clearStorageData({ storages: ['cookies'] });
@@ -851,28 +912,27 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
   // }
   // console.log('-----agent_cookies',agent_cookies)
   // 3. 再设置cookie（如果有）
-  if (agent_cookies) {
+  if (agent_cookies && agent_cookies.length > 0) {
     try {
       for (j of agent_cookies){
-        // console.log('j---------------1111',j)
         let name = j.name;
         let value = j.value;
-        // let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;
         let domain = j.domain;
-        let secure = j.secure;
+        let secure = j.secure || true;
         let httpOnly = j.httpOnly;
         let path = j.path
         await ses.cookies.set({
-        url: "https://agents.baidu.com",
-        name,
-        value,
-        options: {
-          httpOnly: httpOnly,
-          secure: secure,
-          path: path,
-          domain: domain,
-          expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000 // 30天过期
-        }
+            url: "https://agents.baidu.com",
+            name,
+            value,
+            options: {
+            httpOnly: httpOnly,
+            secure: secure,
+            path: path,
+            domain: domain,
+            sameSite: 'no_restriction',
+            expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000 // 30天过期
+            }
       });
       }
       // await ses.cookies.set(data.cookie);
