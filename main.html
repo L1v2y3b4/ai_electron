@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>授权工具</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+			font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+		}
+
+		body {
+			background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+			display: flex;
+			flex-direction: column;
+			height: 100vh;
+			overflow: hidden;
+			color: #333;
+		}
+
+		#app {
+			display: flex;
+			flex: 1;
+			overflow: hidden;
+			position: relative;
+		}
+
+		/* 左侧导航样式 */
+		.sidebar {
+			width: 300px;
+			background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+			z-index: 10;
+			position: relative;
+		}
+
+		.sidebar::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3Cpattern id='grain' width='100' height='100' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='50' cy='50' r='1' fill='rgba(255,255,255,0.05)'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23grain)'/%3E%3C/svg%3E");
+			pointer-events: none;
+		}
+
+		.drag-area {
+			width: 100%;
+			height: 30px; /* 拖拽区域的高度 */
+			cursor: grab; /* 鼠标指针变为可拖拽 */
+			-webkit-app-region: drag; /* 允许拖拽 */
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 100; /* 确保在最上层 */
+		}
+
+		.nav-header {
+			padding: 40px 20px 20px 20px; /* 增加顶部边距 */
+			text-align: center;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+			margin-bottom: 20px;
+		}
+
+		.nav-header h2 {
+			color: white;
+			font-size: 22px;
+			font-weight: 600;
+			text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+			display: flex;
+			align-items: center;
+		}
+
+		.nav-header h2::before {
+			/* content: '🚀'; */
+			margin-right: 12px;
+			font-size: 24px;
+		}
+
+		.nav-items {
+			padding: 25px 20px;
+			flex: 1;
+			overflow-y: auto;
+			position: relative;
+			z-index: 1;
+		}
+
+		.nav-items::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		.nav-items::-webkit-scrollbar-track {
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 3px;
+		}
+
+		.nav-items::-webkit-scrollbar-thumb {
+			background: rgba(255, 255, 255, 0.3);
+			border-radius: 3px;
+		}
+
+		.nav-items::-webkit-scrollbar-thumb:hover {
+			background: rgba(255, 255, 255, 0.5);
+		}
+
+		.nav-item {
+			display: flex;
+			align-items: center;
+			padding: 18px 24px;
+			margin: 8px 0;
+			border-radius: 12px;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			color: rgba(255, 255, 255, 0.8);
+			font-size: 15px;
+			font-weight: 500;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.nav-item::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: -100%;
+			width: 100%;
+			height: 100%;
+			background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+			transition: left 0.5s;
+		}
+
+		.nav-item:hover::before {
+			left: 100%;
+		}
+
+		.nav-item:hover {
+			background: rgba(255, 255, 255, 0.15);
+			color: white;
+			transform: translateX(5px);
+		}
+
+		.nav-item.active {
+			background: rgba(255, 255, 255, 0.2);
+			color: white;
+			font-weight: 600;
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+			transform: translateX(5px);
+		}
+
+		.nav-item.active::after {
+			content: '';
+			position: absolute;
+			right: 0;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 4px;
+			height: 60%;
+			background: white;
+			border-radius: 2px 0 0 2px;
+		}
+
+		.nav-item span:first-child {
+			margin-right: 15px;
+			font-size: 20px;
+			width: 24px;
+			text-align: center;
+		}
+
+		.nav-item span:last-child {
+			flex: 1;
+		}
+
+		/* 右侧内容区域 */
+		.content-area {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			background: white;
+			border-radius: 20px 0 0 0;
+			box-shadow: -4px 0 20px rgba(0, 0, 0, 0.05);
+			position: relative;
+		}
+
+		.content-area::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 1px;
+			background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.2), transparent);
+		}
+
+		.webview-container {
+			flex: 1;
+			position: relative;
+			border-radius: 20px 0 0 0;
+			overflow: hidden;
+		}
+
+		webview {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			border-radius: 20px 0 0 0;
+		}
+
+		.browser-controls {
+			padding: 20px 25px;
+			background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+			border-top: 1px solid #dee2e6;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			position: relative;
+			gap: 30px;
+		}
+
+		.browser-controls::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 1px;
+			background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+		}
+
+		.control-group {
+			display: flex;
+			gap: 16px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		.refresh-btn {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			border: none;
+			border-radius: 8px;
+			color: white;
+			font-size: 13px;
+			font-weight: 500;
+			padding: 12px 20px;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+			min-width: 100px;
+		}
+
+		.refresh-btn::before {
+			content: '🔄';
+			font-size: 14px;
+		}
+
+		.refresh-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+		}
+
+		.refresh-btn:active {
+			transform: translateY(0);
+		}
+
+		.update-auth-btn {
+			background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+			border: none;
+			border-radius: 8px;
+			color: white;
+			font-size: 13px;
+			font-weight: 500;
+			padding: 12px 20px;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+			min-width: 100px;
+		}
+
+		.update-auth-btn::before {
+			content: '🔄';
+			font-size: 14px;
+		}
+
+		.update-auth-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+		}
+
+		.update-auth-btn:active {
+			transform: translateY(0);
+		}
+
+		.logout-btn {
+			background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			padding: 12px 20px;
+			cursor: pointer;
+			font-size: 13px;
+			font-weight: 500;
+			transition: all 0.3s ease;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2);
+			min-width: 100px;
+		}
+
+		.logout-btn::before {
+			content: '🚪';
+			font-size: 14px;
+		}
+
+		.logout-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+		}
+
+		.logout-btn:active {
+			transform: translateY(0);
+		}
+
+		.status-indicator {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 12px;
+			color: #666;
+		}
+
+		.status-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: #28a745;
+			animation: pulse 2s infinite;
+		}
+
+		@keyframes pulse {
+			0% {
+				opacity: 1;
+			}
+
+			50% {
+				opacity: 0.5;
+			}
+
+			100% {
+				opacity: 1;
+			}
+		}
+
+		.message-box {
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background: white;
+			border-radius: 16px;
+			box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+			padding: 40px;
+			text-align: center;
+			min-width: 350px;
+			z-index: 1000;
+			border: 1px solid rgba(102, 126, 234, 0.1);
+			backdrop-filter: blur(10px);
+		}
+
+		.message-box h3 {
+			color: #667eea;
+			margin-bottom: 15px;
+			font-size: 20px;
+			font-weight: 600;
+		}
+
+		.message-box p {
+			color: #666;
+			margin-bottom: 25px;
+			font-size: 15px;
+			line-height: 1.5;
+		}
+
+		.message-box button {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			padding: 12px 24px;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: 500;
+			transition: all 0.3s ease;
+		}
+
+		.message-box button:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+		}
+
+		/* 加载动画 */
+		.loading-overlay {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(255, 255, 255, 0.9);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			z-index: 100;
+			opacity: 0;
+			visibility: hidden;
+			transition: all 0.3s ease;
+		}
+
+		.loading-overlay.show {
+			opacity: 1;
+			visibility: visible;
+		}
+
+		.loading-spinner {
+			width: 40px;
+			height: 40px;
+			border: 3px solid #f3f3f3;
+			border-top: 3px solid #667eea;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+
+		@keyframes spin {
+			0% {
+				transform: rotate(0deg);
+			}
+
+			100% {
+				transform: rotate(360deg);
+			}
+		}
+
+		/* 响应式设计 */
+		@media (max-width: 768px) {
+			.sidebar {
+				width: 250px;
+			}
+
+			.nav-header h2 {
+				font-size: 18px;
+			}
+
+			.nav-item {
+				padding: 15px 20px;
+				font-size: 14px;
+			}
+
+			.browser-controls {
+				padding: 15px 20px;
+				flex-direction: column;
+				gap: 15px;
+			}
+
+			.control-group {
+				justify-content: center;
+				gap: 12px;
+			}
+
+			.refresh-btn,
+			.update-auth-btn,
+			.logout-btn {
+				padding: 10px 16px;
+				font-size: 12px;
+				min-width: 90px;
+			}
+		}
+
+		/* 动画效果 */
+		.nav-item {
+			animation: slideInLeft 0.5s ease-out;
+		}
+
+		@keyframes slideInLeft {
+			from {
+				opacity: 0;
+				transform: translateX(-20px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateX(0);
+			}
+		}
+
+		.content-area {
+			animation: slideInRight 0.5s ease-out;
+		}
+
+		@keyframes slideInRight {
+			from {
+				opacity: 0;
+				transform: translateX(20px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateX(0);
+			}
+		}
+
+		.version-info {
+			margin: 20px 20px 15px 20px;
+			font-size: 12px;
+			color: rgba(255, 255, 255, 0.6);
+			padding: 12px 16px;
+			background: rgba(255, 255, 255, 0.08);
+			border-radius: 8px;
+			font-weight: 500;
+			letter-spacing: 0.5px;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			backdrop-filter: blur(5px);
+			text-align: center;
+			position: relative;
+			z-index: 1;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="app">
+		<!-- 左侧导航 -->
+		<div class="sidebar">
+			<!-- 拖拽区域 -->
+			<div class="drag-area" id="dragArea"></div>
+			
+			<div class="nav-header">
+				<h2 id="userNameHeader">平台导航</h2>
+			</div>
+			<div class="nav-items" id="navItems">
+				<!-- 导航项由JS动态生成 -->
+			</div>
+
+			<!-- 版本号显示 -->
+			<div class="version-info" id="versionInfo">v1.0.0</div>
+
+			<div class="browser-controls">
+				<div class="control-group">
+					<button class="refresh-btn" id="refreshBtn">刷新页面</button>
+					<button class="update-auth-btn" id="updateAuthBtn">更新授权</button>
+				</div>
+				<div class="control-group">
+					<button class="logout-btn" id="logoutBtn">退出登录</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 右侧内容区域 -->
+		<div class="content-area">
+			<div class="webview-container">
+				<div class="loading-overlay" id="loadingOverlay">
+					<div class="loading-spinner"></div>
+				</div>
+				<webview id="browserView" src="./welcome.html"
+					partition="persist:zhongshang" style="display:inline-flex; width:100%; height:100%"
+					webpreferences="javascript=yes, contextIsolation=yes" allowpopups
+					useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36">
+				</webview>
+			</div>
+		</div>
+	</div>
+
+	<script src="./main.js"></script>
+	<script>
+		//设置全局的cookies的承载器
+		// 导航配置
+
+		// 随机 User-Agent 列表
+		const userAgents = [
+			'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+			'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
+			'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1',
+			'Mozilla/5.0 (Linux; Android 13; SM-S901U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
+		];
+
+		function getRandomUserAgent() {
+			return userAgents[Math.floor(Math.random() * userAgents.length)];
+		}
+		const navItems = [
+			{ id: 0, name: "主页", url: "./welcome.html", icon: "🏠", flag: false, show: true },
+			{ id: 2, name: "搜狐", url: "https://mp.sohu.com/mpfe/v4/login", icon: "🦊", flag: false, show: true },
+			{ id: 6, name: "腾讯创作", url: "https://om.qq.com/main", icon: "🐧", flag: false, show: true },
+			// { id: 7, name: "值得买", url: "https://zhiyou.smzdm.com/user/login?redirect_to=https://post.smzdm.com/tougao/", icon: "🛒", flag: false },
+			{ id: 1, name: "百家号", url: "https://baijiahao.baidu.com/", icon: "📝", flag: false, show: true },
+			{ id: 4, name: "微信公众号", url: "http://zs.open.chuangmaedu.com/openPlatform/preAuthCodeHtml/open?id=", icon: "💬", flag: false, show: true },
+			{ id: 3, name: "今日头条", url: "https://mp.toutiao.com/auth/page/login", icon: "📰", flag: false, show: true },
+			{ id: 5, name: "新浪", url: "https://mp.sina.com.cn/", icon: "🕊️", flag: false, show: true  },
+			{ id: 8, name: "网易", url: "https://mp.163.com/login.html#/", icon: "🌐", flag: false, show: false },
+			// "https://mp.163.com/oauth2/authorize?client_id=fOfFmkq4CF&response_type=code&redirect_uri=http://47.93.80.212:8000/wangyi/callback/?send_id="
+		];
+
+		let token = '';
+		let sendId = '';
+		let currentNavId = 0;
+		let sendFlag = false;
+		let userName = '';
+        let isCollectingLoginSequence = false;
+
+		// 设置用户数据
+		window.electronAPI.setUserData((event, data) => {
+			token = data.token;
+			sendId = data.sendId;
+			userName = data.userName;
+			console.log('=======userName',userName)
+			// 设置用户名到导航头部
+			const userNameHeader = document.getElementById('userNameHeader');
+			if (userNameHeader && userName) {
+				userNameHeader.textContent = userName;
+			}
+			window.electronAPI.getMenuIsAuth({
+				id: sendId,
+				_type: "zmt_wy"
+			}).then(result => {
+				console.log('权限调用结果:', result);
+				navItems.forEach(item => {
+					if(result.hasOwnProperty(item.id) && result[item.id]){
+						item.show = result[item.id]
+					}
+				});
+				initApp();
+			}).catch(error => {
+				console.error('权限调用失败:', error);
+				initApp();
+			});
+		});
+
+		// 初始化拖拽功能
+		function initDragAndDrop() {
+			const dragArea = document.getElementById('dragArea');
+			let isDragging = false;
+			let startX, startY;
+
+			dragArea.addEventListener('mousedown', (e) => {
+				isDragging = true;
+				startX = e.clientX;
+				startY = e.clientY;
+				dragArea.style.cursor = 'grabbing';
+			});
+
+			document.addEventListener('mousemove', (e) => {
+				if (!isDragging) return;
+				
+				const deltaX = e.clientX - startX;
+				const deltaY = e.clientY - startY;
+				
+				// 使用Electron API移动窗口
+				if (window.electronAPI && window.electronAPI.moveWindow) {
+					window.electronAPI.moveWindow(deltaX, deltaY);
+				}
+				
+				startX = e.clientX;
+				startY = e.clientY;
+			});
+
+			document.addEventListener('mouseup', () => {
+				isDragging = false;
+				dragArea.style.cursor = 'grab';
+			});
+		}
+
+		function initApp() {
+			// 初始化拖拽功能
+			initDragAndDrop();
+			
+			// 渲染导航项
+
+			cookiesList = [];
+            agentCookies = [];
+			const navItemsContainer = document.getElementById('navItems');
+			navItemsContainer.innerHTML = '';
+
+			// 设置版本号
+			const versionInfo = document.getElementById('versionInfo');
+			const params = new URLSearchParams(window.location.search);
+			const version = params.get('version');
+			if (version) {
+				versionInfo.textContent = `© 2025 授权工具 v${version}`;
+			}
+
+			navItems.forEach((item, index) => {
+				if(item.id != 5 && item.id != 3 && item.show){
+					const navItem = document.createElement('div');
+					navItem.className = 'nav-item';
+					if (item.id === currentNavId) navItem.classList.add('active');
+					navItem.dataset.id = item.id;
+					navItem.style.animationDelay = `${index * 0.1}s`;
+					navItem.innerHTML = `
+						<span>${item.icon}</span>
+						<span>${item.name}</span>
+						${item.id === 1 ? '<span id="submenu-arrow" class="submenu-arrow" style="margin-left:auto;transition:transform 0.2s;">▶</span>' : ''}
+					`;
+
+					navItem.addEventListener('click', (e) => {
+						// 判断是不是点击三角
+						if (e.target.classList.contains('submenu-arrow')) {
+							const subMenu = document.getElementById('wenxinSubMenu');
+							const arrow = document.getElementById('submenu-arrow');
+							if (subMenu.style.display === 'none') {
+								subMenu.style.display = 'flex';
+								arrow.style.transform = 'rotate(90deg)';
+							} else {
+								subMenu.style.display = 'none';
+								arrow.style.transform = 'rotate(0deg)';
+							}
+							return; // 只展开/收起，不切换页面
+						}
+						// 其他区域，切换页面
+						document.querySelector('.nav-item.active').classList.remove('active');
+						navItem.classList.add('active');
+						currentNavId = item.id;
+						// 显示加载动画
+						showLoading();
+
+						// window.electronAPI.openUrl(item.url);
+						const webview = document.getElementById('browserView');
+						// 在加载 URL 前设置随机 UA
+						const randomUA = getRandomUserAgent();
+						window.electronAPI.setWebViewUserAgent(randomUA);
+						if (currentNavId === 4) {
+							// console.log(item.url + sendId)
+							webview.src = item.url + sendId;
+						}else if(currentNavId === 8){
+							webview.src = item.url + sendId;
+						}else {
+							webview.src = item.url;
+						}
+						cookiesList = []
+					});
+
+					navItemsContainer.appendChild(navItem);
+
+					// 在百家号下方插入子菜单"文心智能体"，初始隐藏
+					if(item.id === 1){
+						const subMenu = document.createElement('div');
+						subMenu.className = 'nav-item';
+						subMenu.id = 'wenxinSubMenu';
+						subMenu.style.paddingLeft = '48px';
+						subMenu.style.fontSize = '14px';
+						subMenu.style.opacity = '0.85';
+						subMenu.style.display = 'none';
+						subMenu.innerHTML = `<span>🤖</span><span>文心智能体</span>`;
+						subMenu.addEventListener('click', async () => {
+							document.querySelector('.nav-item.active').classList.remove('active');
+							subMenu.classList.add('active');
+							// 1. 设置 persist:zhinengti 分区的 cookie
+							// await window.electronAPI.setCookie();
+							// 2. 通过主进程弹出新窗口并加载智能体链接
+							window.electronAPI.openUrlInNewWindow({
+								url: 'https://agents.baidu.com/center',
+								partition: 'persist:zhinengti'
+							});
+						});
+						navItemsContainer.appendChild(subMenu);
+					}
+				}
+			});
+
+			// 刷新按钮
+			document.getElementById('refreshBtn').addEventListener('click', () => {
+				const webview = document.getElementById('browserView');
+				showLoading();
+				if(currentNavId === 8 || currentNavId === 4){
+					const a = navItems.find(item => item.id === currentNavId);
+					webview.src = a.url + sendId;
+				}else{
+					webview.reload();
+				}
+			});
+
+			// 更新授权按钮
+			document.getElementById('updateAuthBtn').addEventListener('click', () => {
+				updateAuthorization();
+			});
+
+			// 退出登录
+			document.getElementById('logoutBtn').addEventListener('click', () => {
+				window.electronAPI.logout();
+			});
+
+			// 处理Webview事件
+			const webview = document.getElementById('browserView');
+
+			webview.addEventListener('did-start-loading', () => {
+				showLoading();
+			});
+
+			webview.addEventListener('did-stop-loading', () => {
+				hideLoading();
+			});
+
+			webview.addEventListener('did-finish-load', async () => {
+				hideLoading();
+				const currentUrl = webview.getURL();
+				const url = new URL(currentUrl);
+				// const domain = url.hostname;
+				console.log('-----', url)
+				// console.log(currentUrl)
+				if (currentUrl.includes('https://mp.toutiao.com/profile_v4/index') || '/profile_v4/index'.includes(currentUrl)) {
+					checkLoginStatus(currentUrl);
+				}
+				if (currentUrl.includes('http://zs.open.chuangmaedu.com/openPlatform/callback')) {
+					checkLoginStatus(currentUrl);
+				}
+				// if (currentUrl.includes('https://zhiyou.smzdm.com/user') && !currentUrl.includes('login')) {
+				// 	checkLoginStatus(currentUrl);
+				// }
+				if (currentUrl.includes('https://post.smzdm.com/tougao') && !currentUrl.includes('login')) {
+					checkLoginStatus(currentUrl);
+				}
+				if (currentUrl.includes('https://om.qq.com/main')) {
+					checkLoginStatus(currentUrl);
+				}
+                agentCookies = await window.electronAPI.getAgentCookies();
+                console.log('当前智能体的cookies:', agentCookies)
+			});
+
+			// 监听页面内URL变化（如前端路由）
+			webview.addEventListener('did-navigate-in-page', (event) => {
+				console.log(event)
+				const currentUrl = event.url || webview.getURL();
+				console.log('页面内URL变化:', currentUrl);
+				checkLoginStatus(currentUrl);
+			});
+
+			// 监听 did-frame-navigate 事件
+			// mainWindow.webContents.on('did-frame-navigate', (event, url, isMainFrame) => {
+			// 	if (isMainFrame) {
+			// 		console.log('主框架导航到:', url);
+			// 		// 在这里处理路由变化逻辑
+			// 	}
+			// });
+
+		}
+
+		// 显示/隐藏加载动画
+		function showLoading() {
+			const loadingOverlay = document.getElementById('loadingOverlay');
+			loadingOverlay.classList.add('show');
+		}
+
+		function hideLoading() {
+			const loadingOverlay = document.getElementById('loadingOverlay');
+			loadingOverlay.classList.remove('show');
+		}
+        
+   		// 自动按顺序访问百度三个页面并收集 cookie 的辅助函数
+		async function updateLoginStatus() {
+            cookiesList = [];
+			isCollectingLoginSequence = true;
+			showLoading();
+			const webview = document.getElementById('browserView');
+			const steps = [
+				{ url: 'https://baijiahao.baidu.com/builder/rc/home', domain: 'https://baijiahao.baidu.com' },
+				{ url: 'https://passport.baidu.com/v6/ucente', domain: 'https://passport.baidu.com' },
+				{ url: 'https://agents.baidu.com/center', domain: 'https://agents.baidu.com' }
+			];
+			function waitForWebviewLoadOnce() {
+				return new Promise((resolve) => {
+					const onFinish = () => {
+						try { webview.removeEventListener('did-finish-load', onFinish); } catch (e) {}
+						setTimeout(resolve, 2000);
+					};
+					webview.addEventListener('did-finish-load', onFinish);
+				});
+			}
+
+			try {
+				for (let i = 0; i < steps.length; i++) {
+                    const step = steps[i];
+                    try {
+                        webview.src = step.url;
+                        await waitForWebviewLoadOnce();
+                        window.electronAPI.getCookies(step.domain).then((result)=>{
+                            cookiesList.push(result);
+                            console.log('Collected cookies for', step.domain, result);
+                            if (step.url.includes('passport.baidu.com')) {
+                                console.log('写入反向登录的智能体cookie')
+                                window.electronAPI.setCookies({
+                                    targetUrl: 'https://agents.baidu.com',
+                                    cookies: agentCookies,
+                                    domain: '.baidu.com'
+                                }).then(() => {
+                                    console.log("智能体 Cookie 已设置")
+                                    setTimeout(() => {
+                                        webview.src = "https://agents.baidu.com/center";
+                                    }, 3000); 
+                                });
+                            }
+                            if (step.domain.includes('agents.baidu.com')) {
+                                window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId }).then(()=>{
+                                    console.log("跳回 https://baijiahao.baidu.com/builder/rc/home");
+                                    setTimeout(() => {
+                                        webview.src = "https://baijiahao.baidu.com/builder/rc/home";
+                                    }, 2000);
+                                    setTimeout(() => {
+                                        isCollectingLoginSequence = false;
+                                    }, 3000);
+                                    showSuccessMessage("更新授权成功");
+                                })
+                            }
+                        })
+                    } catch (err) {
+                        console.error('Error collecting cookies for', step.domain, err);
+                    }
+                    }
+			} finally {
+				hideLoading();
+			}
+		}
+        
+
+		function checkLoginStatus(url) {
+			// 如果自动化流程在运行，跳过页面监控的自动切换/收集逻辑，避免重复/冲突
+			if (isCollectingLoginSequence) {
+				console.log('checkLoginStatus skipped (automation in progress)');
+				return;
+			}
+            console.log('---验证url', url)
+            const a = navItems.find(item => item.id === currentNavId);
+            console.log('-----a------',a)
+            // 根据URL判断是否登录成功
+            if (url.includes('baijiahao.baidu.com/builder/rc/home') && a && !a.flag) {
+                // showSuccessMessage('登录成功');
+                try {
+                    res = window.electronAPI.getCookies('https://baijiahao.baidu.com');
+                    res.then((result) => {
+                        const webview = document.getElementById('browserView');
+                        // result 就是 [[PromiseResult]] 中的数组
+                        cookiesList = [];
+                        cookiesList.push(result);
+                        // console.log('当前页面的所有cookie:', cookiesList);
+                        setTimeout(() => {
+                            webview.src = "https://passport.baidu.com/";
+                        }, 2000);
+
+                    });
+                } catch (error) {
+                    console.error('获取cookie失败:', error);
+                }
+
+                // saveCookies();
+            }
+            if (url.includes('passport.baidu.com/v6/ucente') && a && !a.flag) {
+                window.electronAPI.getCookies('https://passport.baidu.com').then((passportCookies) => {
+                    cookiesList.push(passportCookies);
+                    console.log("准备注入cookie")
+                    const webview = document.getElementById('browserView');
+                    window.electronAPI.setCookies({
+                        targetUrl: 'https://agents.baidu.com',
+                        cookies: passportCookies,
+                        domain: '.baidu.com'// 顶级域名
+                    }).then(()=>{
+                        setTimeout(() => {
+                            webview.src = "https://agents.baidu.com/";
+                        }, 2000);
+                    })
+                })
+                // res = window.electronAPI.getCookies('https://passport.baidu.com');
+                // res.then((result) => {
+                // 	cookiesList.push(result);
+                // 	// console.log('当前页面的所有cookie:', cookiesList);
+                // 	const webview = document.getElementById('browserView');
+                // 	setTimeout(() => {
+                // 		webview.src = "https://agents.baidu.com/";
+                // 	}, 2000);
+                // });
+            }
+            if (url.includes('agents.baidu.com/center') && a && !a.flag) {
+                res = window.electronAPI.getCookies('https://agents.baidu.com');
+                res.then((result) => {
+                    const webview = document.getElementById('browserView');
+                    cookiesList.push(result);
+                    // console.log('当前页面的所有cookie:', cookiesList);
+                    //去发送后端
+                    // console.log(currentNavId)
+                    // const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+                    const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+                    a.flag = true;
+                    setTimeout(() => {
+                        webview.src = "https://baijiahao.baidu.com/builder/rc/home";
+                    }, 2000);
+                    showSuccessMessage("登录成功");
+                });
+
+			}
+			if (url.includes('https://mp.sohu.com/mpfe/v4/contentManagement/first/page') && a && !a.flag) {
+				res = window.electronAPI.getCookies('https://mp.sohu.com');
+				res.then((result) => {
+					cookiesList = [];
+					cookiesList.push(...result);
+					// console.log('当前页面的所有cookie:', cookiesList);
+					// 去发送后端
+					// console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+			if ((url.includes('https://mp.toutiao.com/profile_v4/index') || 'profile_v4/index'.includes(url)) && a && !a.flag) {
+				res = window.electronAPI.getCookies('https://mp.toutiao.com');
+				res.then((result) => {
+					cookiesList = [];
+					cookiesList.push(...result);
+					// console.log('当前页面的所有cookie:', cookiesList);
+					//去发送后端
+					// console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+			if (url.includes('https://mp.sina.com.cn/#') && a && !a.flag) {
+				res = window.electronAPI.getCookies('https://mp.sina.com.cn');
+				res.then((result) => {
+					cookiesList = [];
+					cookiesList.push(...result);
+					// console.log('当前页面的所有cookie:', cookiesList);
+					//去发送后端
+					// console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+			if (url.includes('https://om.qq.com/main') && a && !a.flag) {
+				res = window.electronAPI.getCookies('https://om.qq.com');
+				res.then((result) => {
+					cookiesList = [];
+					cookiesList.push(...result);
+					// console.log('当前页面的所有cookie:', cookiesList);
+					//去发送后端
+					// console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+			if (url.includes('http://zs.open.chuangmaedu.com/openPlatform/callback') && a && !a.flag) {
+				// console.log(result2, '===result2')
+				const data = {
+					'type': currentNavId,
+					'json_str': sendId,
+					'time': Math.floor(Date.now() / 1000).toString(),
+					'send_id': sendId
+				};
+				const headers = {
+					'Content-Type': 'application/json',
+				};
+				// fetch('http://192.168.3.134:8000/api/desktop/check/sign/', {
+				fetch('http:///47.93.80.212:8000/api/desktop/check/sign/', {
+					method: 'POST',
+					headers: headers,
+					body: JSON.stringify(data)
+				})
+					.then(response => {
+						if (!response.ok) {
+							throw new Error(`HTTP error! status: ${response.status}`);
+						}
+						return response.json();
+					})
+					.then(data => {
+						// 请求成功时处理响应数据
+						console.log('56546454453:', data.data);
+						const cookiesList = {'appid': data.data };
+						// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+						return data; // 返回处理后的数据
+					})
+					.catch(error => {
+						// 请求失败时处理错误
+						console.error('HTTP error! status:', error);
+						return null;
+					});
+				showSuccessMessage("登录成功");
+			}
+			if (url.includes('https://post.smzdm.com/tougao/') &&  a && !a.flag) {
+				res = window.electronAPI.getCookies('https://post.smzdm.com');
+				console.log(window.electronAPI.getCookies('https://zhiyou.smzdm.com'))
+				cookiesList = [];
+				res.then((result) => {
+					cookiesList.push(...result);
+					console.log('当前页面的所有cookie:', cookiesList);
+					// const webview = document.getElementById('browserView');
+					// setTimeout(() => {
+					//   webview.src = "https://zhiyou.smzdm.com/user";
+					// }, 2000);
+					//去发送后端
+					// console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+			if (url.includes('http://mp.163.com/subscribe_v4/index.html#/') && a && !a.flag) {
+				res = window.electronAPI.getCookies('http://mp.163.com');
+				res.then((result) => {
+					cookiesList = [];
+					cookiesList.push(...result);
+					console.log('当前页面的所有cookie:', cookiesList);
+					//去发送后端
+					console.log(currentNavId)
+					// const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+					const result2 = window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId });
+					a.flag = true;
+				});
+				showSuccessMessage("登录成功");
+			}
+		}
+
+		async function saveCookies() {
+			try {
+				const cookies = await window.electronAPI.getCookies('baidu.com');
+				await window.electronAPI.saveCookies({
+					cookies,
+					type: currentNavId,
+					token,
+					sendId
+				});
+			} catch (error) {
+				console.error('保存Cookie失败:', error);
+			}
+		}
+
+		function showSuccessMessage(message) {
+			console.log('=====弹框==', message);
+			try {
+				window.electronAPI.showMessage({
+					type: 'info',
+					title: message,
+					message: message
+				}).then(result => {
+					console.log('消息显示结果:', result);
+				}).catch(error => {
+					console.error('显示消息失败:', error);
+					// 备用方案：使用alert
+					alert(message);
+				});
+			} catch (error) {
+				console.error('调用showMessage失败:', error);
+				// 备用方案：使用alert
+				alert(message);
+			}
+		}
+
+		// 更新授权功能
+		function updateAuthorization() {
+			console.log('开始更新授权...');
+			
+			// 显示加载动画
+			showLoading();
+			
+			const webview = document.getElementById('browserView');
+			const currentUrl = webview.getURL();
+			
+			// 根据当前页面获取对应的域名
+			let domain = '';
+			if (currentUrl.includes('baijiahao.baidu.com')) {
+				domain = 'https://baijiahao.baidu.com';
+                try {
+                    updateLoginStatus();
+                } catch (e) {
+                    console.error('调用 updateLoginStatus 失败:', e);
+                }
+                hideLoading();
+				showSuccessMessage('授权更新成功');
+                return;
+			}
+            if (currentUrl.includes('mp.sohu.com')) {
+				domain = 'https://mp.sohu.com';
+			} else if (currentUrl.includes('mp.toutiao.com')) {
+				domain = 'https://mp.toutiao.com';
+			} else if (currentUrl.includes('mp.sina.com.cn')) {
+				domain = 'https://mp.sina.com.cn';
+			} else if (currentUrl.includes('om.qq.com')) {
+				domain = 'https://om.qq.com';
+			} else if (currentUrl.includes('post.smzdm.com')) {
+				domain = 'https://post.smzdm.com';
+			} else if (currentUrl.includes('mp.163.com')) {
+				domain = 'https://mp.163.com';
+			} else {
+				hideLoading();
+				showSuccessMessage('当前页面不支持更新授权');
+				return;
+			}
+			
+			// 获取cookies并发送到后端
+			window.electronAPI.getCookies(domain).then((result) => {
+				console.log('获取到的cookies:', result);
+				
+				// 发送到后端更新授权
+				const result2 = window.electronAPI.checkUserCookies({ 
+					currentNavId, 
+					cookiesList: result, 
+					token, 
+					sendId 
+				});
+				
+				hideLoading();
+				showSuccessMessage('授权更新成功');
+				
+			}).catch((error) => {
+				console.error('更新授权失败:', error);
+				hideLoading();
+				showSuccessMessage('授权更新失败，请重试');
+			});
+		}
+		// 组合监听
+		function setupNavigationListener(callback) {
+			// 监听hash变化
+			window.addEventListener('hashchange', () => callback({
+				type: 'hashchange',
+				url: window.location.href
+			}));
+
+			// 监听pushState/replaceState
+			window.addEventListener('locationchange', (e) => callback({
+				type: e.detail.method,
+				url: e.detail.url
+			}));
+
+			// 监听页面加载完成
+			window.addEventListener('load', () => callback({
+				type: 'load',
+				url: window.location.href
+			}));
+		}
+
+		// 使用示例
+		setupNavigationListener((event) => {
+			console.log('Navigation event:', event);
+			// 执行你的逻辑
+		});
+
+		function sendUrl() {
+			const data = {
+				'type': currentNavId,
+				'json_str': JSON.stringify(cookiesList),
+				'time': Math.floor(Date.now() / 1000).toString(),
+				'send_id': sendId
+			};
+			const headers = {
+				'Content-Type': 'application/json',
+			};
+			fetch(checkUrl + '/desktop/check/sign/', {
+				method: 'POST',
+				headers: headers,
+				body: JSON.stringify(data)
+			})
+				.then(response => {
+					if (!response.ok) {
+						throw new Error(`HTTP error! status: ${response.status}`);
+					}
+					return response.json();
+				})
+				.then(data => {
+					// 请求成功时处理响应数据
+					console.log('data:', data);
+					return data; // 返回处理后的数据
+				})
+				.catch(error => {
+					// 请求失败时处理错误
+					console.error('请求失败:', error);
+					return null;
+				});
+		}
+
+	</script>
+</body>
+
+</html>

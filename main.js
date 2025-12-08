@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, guestView, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, session, dialog, Menu } = require('electron');
 const path = require('path');
 const windowStateKeeper = require('electron-window-state');
 const axios = require('axios');
@@ -7,18 +7,15 @@ const { autoUpdater } = require('electron-updater');
 
 // Windows 7 兼容性配置
 if (process.platform === 'win32') {
-  // 设置 Windows 7 兼容性
   app.commandLine.appendSwitch('--disable-gpu-sandbox');
   app.commandLine.appendSwitch('--disable-software-rasterizer');
   app.commandLine.appendSwitch('--disable-dev-shm-usage');
   app.commandLine.appendSwitch('--no-sandbox');
   app.commandLine.appendSwitch('--disable-setuid-sandbox');
-  
-  // 设置兼容的 User Agent
   app.commandLine.appendSwitch('--user-agent', 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 }
 
-// 配置 Chromium 下载到本地
+// 配置 Chromium
 app.commandLine.appendSwitch('--disable-background-timer-throttling');
 app.commandLine.appendSwitch('--disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('--disable-renderer-backgrounding');
@@ -28,36 +25,39 @@ const userDataPath = app.getPath('userData');
 const chromiumCachePath = path.join(userDataPath, 'chromium-cache');
 app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 
-//智能体的cookie
+// 智能体的cookie
 let agent_cookies = [];
 
-
-
 const loginUrl = 'http://ai.zhongshang114.com';
-// const loginUrl = 'http://192.168.0.38:9020';
 const checkUrl = "http://47.93.80.212:8000/api";
-// const checkUrl = "http://127.0.0.1:8000/api";
+// const mainUrl = "http://192.168.0.35:8000/api"
+
+// 请求去重机制
+const requestTracker = new Map();
+
+function generateRequestId(data) {
+  return `${data.userId}_${data.type}_${data.position || 0}_${Date.now()}`;
+}
+
+function isRequestPending(requestId) {
+  return requestTracker.has(requestId) && requestTracker.get(requestId) === 'pending';
+}
+
+function setRequestStatus(requestId, status) {
+  requestTracker.set(requestId, status);
+  setTimeout(() => {
+    requestTracker.delete(requestId);
+  }, 5000);
+}
 
 // 随机 UA 生成器
 function getRandomUA() {
   const agents = [
-    // Chrome
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    // 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-
-    // Safari
-    // 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
-
-    // Firefox
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
-
-    // Mobile
-    // 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1',
-    // 'Mozilla/5.0 (Linux; Android 13; SM-S901U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
   ];
   return agents[Math.floor(Math.random() * agents.length)];
 }
-
 
 // 存储 webview 的 UA 映射
 const webviewUserAgents = new Map();
@@ -68,33 +68,30 @@ ipcMain.on('set-webview-ua', (event, userAgent) => {
   webviewUserAgents.set(webviewId, userAgent);
 });
 
-
 function clearCache() {
   try {
     // 清除默认 session 的所有 cookies
     session.fromPartition('persist:zhongshang').clearStorageData({
-      storages: ['cookies'] // 指定清除 cookies
+      storages: ['cookies', 'localstorage', 'indexdb']
     }).then(() => {
-      console.log('所有 cookies 已清除')
+      console.log('默认分区所有数据已清除')
     }).catch(err => {
-      console.error('清除cookies失败:', err);
+      console.error('清除默认分区数据失败:', err);
     });
 
-    const ses = session.defaultSession || session.fromPartition('persist:zhongshang');
-
-    // 清除缓存
+    const ses = session.fromPartition('persist:zhongshang');
+    
     ses.clearCache().then(() => {
       console.log('---------clearCache true');
     }).catch(err => {
       console.error('------clearCache fail:', err);
     });
 
-    // 只清除临时存储数据，保留必要的本地存储
     ses.clearStorageData({
-      storages: ['indexdb'], // 只清除indexdb，保留localstorage
-      quotas: ['temporary'] // 只清除临时配额
+      storages: ['cookies', 'localstorage', 'indexdb'],
+      quotas: ['temporary', 'persistent']
     }).then(() => {
-      console.log('-----444444临时存储数据已清除');
+      console.log('所有存储数据已清除');
     }).catch(err => {
       console.error('清除存储数据失败:', err);
     });
@@ -103,20 +100,23 @@ function clearCache() {
   }
 }
 
-
 let loginWindow = null;
 let userListWindow = null;
 let mainWindow = null;
-let isLoggingOut = false; // 添加退出登录标志
+let isLoggingOut = false;
 
 function createLoginWindow() {
   try {
+    if (loginWindow) {
+      loginWindow.destroy();
+      loginWindow = null;
+    }
+    
     const loginState = windowStateKeeper({
       defaultWidth: 360,
       defaultHeight: 400,
       defaultCenter: true
     });
-
 
     loginWindow = new BrowserWindow({
       x: loginState.x,
@@ -130,7 +130,7 @@ function createLoginWindow() {
       resizable: true,
       center: true,
       webPreferences: {
-        webrtc: false, // 禁用视频通话、P2P文件传输
+        webrtc: false,
         preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
         contextIsolation: true,
@@ -139,6 +139,7 @@ function createLoginWindow() {
       frame: false,
       backgroundColor: '#f8f9fa'
     });
+    
     Menu.setApplicationMenu(null);
     console.log('登录窗口创建完成，ID:', loginWindow.id);
 
@@ -149,12 +150,9 @@ function createLoginWindow() {
 
     loginWindow.webContents.on('did-finish-load', () => {
       loginWindow.webContents.send('get_version', { version });
-      //去获取当前用户的cookies
-      console.log('------窗口加载完成')
+      console.log('------登录窗口加载完成')
     });
 
-
-    // 确保窗口显示并获得焦点
     loginWindow.once('ready-to-show', () => {
       console.log('登录窗口准备显示');
       loginWindow.show();
@@ -164,13 +162,11 @@ function createLoginWindow() {
     loginWindow.on('closed', () => {
       console.log('登录窗口关闭');
       loginWindow = null;
-      // 只有在不是退出登录且没有主窗口时才退出应用
       if (!isLoggingOut && !mainWindow && !userListWindow) {
         app.quit();
       }
     });
 
-    // 添加错误处理
     loginWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       console.error('登录窗口加载失败:', errorCode, errorDescription);
     });
@@ -181,7 +177,6 @@ function createLoginWindow() {
 
     loginWindow.on('crashed', () => {
       console.error('登录窗口崩溃');
-      // 重新创建登录窗口
       setTimeout(() => {
         if (!loginWindow) {
           createLoginWindow();
@@ -193,7 +188,6 @@ function createLoginWindow() {
 
   } catch (error) {
     console.error('创建登录窗口失败:', error);
-    // 如果创建失败，尝试重新创建
     setTimeout(() => {
       if (!loginWindow) {
         createLoginWindow();
@@ -202,7 +196,7 @@ function createLoginWindow() {
   }
 }
 
-function createUserListWindow(token, sendId, userName,userType) {
+function createUserListWindow(token, sendId, userName, userType) {
   const userListState = windowStateKeeper({
     defaultWidth: 1200,
     defaultHeight: 800,
@@ -229,29 +223,24 @@ function createUserListWindow(token, sendId, userName,userType) {
     backgroundColor: '#ffffff'
   });
 
-  // 禁用默认菜单
   Menu.setApplicationMenu(null);
-
   userListState.manage(userListWindow);
   userListWindow.loadFile(path.join(__dirname, 'renderer/user-list.html'), {
     query: { version }
   });
 
   userListWindow.webContents.on('did-finish-load', () => {
-    userListWindow.webContents.send('set-user-data', { token, sendId, userName,userType });
+    userListWindow.webContents.send('set-user-data', { token, sendId, userName, userType });
     console.log('用户列表窗口加载完成');
-    console.log('-------------------');
   });
 
   userListWindow.on('closed', () => {
     userListWindow = null;
-    // 如果关闭用户列表窗口且没有其他窗口，则退出应用
     if (!mainWindow && !loginWindow && !userListWindow) {
       app.quit();
     }
   });
 
-  // 仅开发环境打开开发者工具
   if (!app.isPackaged) {
     userListWindow.webContents.openDevTools();
   }
@@ -287,20 +276,18 @@ function createMainWindow(token, sendId, userName) {
     },
     backgroundColor: '#ffffff'
   });
-  // 禁用默认菜单
+  
   Menu.setApplicationMenu(null);
-  // 拦截所有 webview 请求
+  
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const webviewId = details.webContentsId;
-
     if (webviewUserAgents.has(webviewId)) {
       const userAgent = webviewUserAgents.get(webviewId);
       details.requestHeaders['User-Agent'] = userAgent;
     }
-
     callback({ requestHeaders: details.requestHeaders });
   });
-  // 设置自定义用户代理
+  
   mainWindow.webContents.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
 
   mainState.manage(mainWindow);
@@ -310,35 +297,47 @@ function createMainWindow(token, sendId, userName) {
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('set-user-data', { token, sendId, userName });
-    //去获取当前用户的cookies
     console.log('------窗口加载完成')
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // 只有在不是退出登录且没有登录窗口时才退出应用
     if (!isLoggingOut && !loginWindow && !userListWindow) {
       app.quit();
     }
   });
-  // 仅开发环境打开开发者工具
+  
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
   }
 
-  // 调用示例
   clearCache();
-  getUserCookies(sendId)
+  getUserCookies(sendId);
 }
 
+// ============ IPC 处理函数 ============
 
-ipcMain.handle('get-cookies', async (event, domain) => {
-  // 使用与webview相同的分区
-  const sess = session.fromPartition('persist:zhongshang');
-  const res = await sess.cookies.get({ url: domain });
-  return res;
+// 1. 修复 get-cookies
+ipcMain.handle('get-cookies', async (event, domain, partition = null) => {
+  let sess;
+  if (partition) {
+    sess = session.fromPartition(partition);
+  } else {
+    const webContents = event.sender;
+    sess = webContents.session;
+  }
+
+  try {
+    const filter = domain ? { url: domain } : {};
+    const res = await sess.cookies.get(filter);
+    return res;
+  } catch (error) {
+    console.error('获取cookies失败:', error);
+    return [];
+  }
 });
 
+// 2. 修复 set-cookies (原版本)
 ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain }) => {
   const ses = session.fromPartition('persist:zhongshang');
   try {
@@ -352,129 +351,547 @@ ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain }) => {
         secure: c.secure ?? true,
         httpOnly: c.httpOnly ?? false,
         sameSite: "no_restriction",
-        expirationDate: (Date.now() / 1000) + 60 * 60 * 24 * 30, // 30天
+        expirationDate: (Date.now() / 1000) + 60 * 60 * 24 * 30,
       });
     }
-
     return { ok: true };
-
   } catch (err) {
     console.error("cookie set failed:", err);
     return { ok: false, error: err };
   }
 });
 
-
-
-
-ipcMain.handle('get-all-cookies', async () => {
-  const session_p = session.defaultSession;
-  return await session_p.cookies.get({});
+// 3. 添加兼容的 get-agent-cookies
+ipcMain.handle("get-agent-cookies", async (event) => {
+  try {
+    console.log('获取智能体cookies');
+    
+    // 兼容性处理：如果 agent_cookies 存在则返回，否则返回空数组
+    if (agent_cookies && agent_cookies.length > 0) {
+      const safeCookies = agent_cookies.map(c => ({
+        name: String(c.name || ""),
+        value: String(c.value || ""),
+        domain: String(c.domain || ".baidu.com"),
+        path: String(c.path || "/"),
+        secure: Boolean(c.secure),
+        httpOnly: Boolean(c.httpOnly),
+        session: Boolean(c.session),
+        expirationDate: c.session ? undefined : (Number(c.expirationDate) || undefined)
+      }));
+      console.log("返回智能体 cookie:", safeCookies.length);
+      return safeCookies;
+    }
+    
+    // 备用方案：尝试从 persist:zhinengti 分区获取
+    try {
+      const zhinengtiSession = session.fromPartition('persist:zhinengti');
+      const cookies = await zhinengtiSession.cookies.get({ url: 'https://agents.baidu.com' });
+      console.log("从zhinengti分区获取到cookie:", cookies.length);
+      return cookies;
+    } catch (fallbackError) {
+      console.log('获取智能体cookie失败，返回空数组');
+      return [];
+    }
+  } catch (err) {
+    console.error("获取智能体cookie失败:", err);
+    return [];
+  }
 });
-//去保存用户的信息
-ipcMain.handle('save_user_cookies', (event, { currentNavId, cookiesList, token, sendId }) => {
+
+// 4. migrate-cookies (保持原样)
+ipcMain.handle("migrate-cookies", async (event, { sourcePartition, targetPartition, domain, cookieData }) => {
+  try {
+    const sourceSession = session.fromPartition(sourcePartition);
+    const targetSession = session.fromPartition(targetPartition);
+    
+    let cookiesToSet = cookieData;
+    
+    if (typeof cookieData === 'string') {
+      try {
+        const parsed = JSON.parse(cookieData);
+        if (Array.isArray(parsed)) {
+          for (let i = 0; i < parsed.length; i++) {
+            if (Array.isArray(parsed[i]) && parsed[i].length > 0) {
+              cookiesToSet = parsed[i];
+              break;
+            }
+          }
+          if (!cookiesToSet || cookiesToSet.length === 0) {
+            cookiesToSet = parsed;
+          }
+        }
+      } catch (parseError) {
+        console.error("解析Cookie字符串失败:", parseError);
+        return { success: false, error: parseError.message };
+      }
+    }
+    
+    if (!Array.isArray(cookiesToSet)) {
+      console.error("Cookie数据不是数组格式:", typeof cookiesToSet);
+      return { success: false, error: "Cookie数据格式错误" };
+    }
+    
+    let successCount = 0;
+    for (const cookie of cookiesToSet) {
+      if (cookie && typeof cookie === 'object' && cookie.name && cookie.value) {
+        try {
+          let cookieDomain = cookie.domain || domain.replace(/^https?:\/\//, '');
+          if (!cookieDomain.startsWith('.')) {
+            cookieDomain = '.' + cookieDomain;
+          }
+          
+          await targetSession.cookies.set({
+            url: domain,
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookieDomain,
+            path: cookie.path || '/',
+            secure: cookie.secure || false,
+            httpOnly: cookie.httpOnly || false,
+            sameSite: cookie.sameSite || 'unspecified'
+          });
+          successCount++;
+        } catch (cookieError) {
+          console.error("设置单个Cookie失败:", cookie.name, cookieError);
+        }
+      }
+    }
+    
+    return { success: true, migratedCount: successCount, totalCookies: cookiesToSet.length };
+  } catch (error) {
+    console.error("Cookie迁移失败:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 5. save_user_cookies (保持原样)
+ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, position, isMain = 0 }) => {
   const headers = {
     'Content-Type': 'application/json',
     'token': token
   };
-  const data = {
-    'type': currentNavId,
-    'authData': JSON.stringify(cookiesList),
-    'status': 1,
-    'customerId': sendId,
-  };
+
   try {
-    // 使用 axios 发送 POST 请求
-    // 发送POST请求到接口
-    const response = axios.post(
+    const checkResponse = await axios.get(
+      loginUrl + '/content/customer/account/list',
+      {
+        headers,
+        params: {
+          type: currentNavId,
+          customerId: sendId
+        }
+      }
+    );
+    
+    const existingAccounts = checkResponse.data;
+    let existingAccount = null;
+    
+    if (existingAccounts && existingAccounts.length > 0) {
+      existingAccount = existingAccounts.find(account => account.position === position);
+    }
+    
+    if (existingAccount) {
+      try {
+        const existingCookies = JSON.parse(existingAccount.authData);
+        const newCookies = cookiesList;
+        if (JSON.stringify(existingCookies) === JSON.stringify(newCookies)) {
+          console.log("Cookie数据未变化，跳过重复保存");
+          return { success: true, message: "数据未变化" };
+        }
+      } catch (e) {
+        console.log("无法比较cookie数据，继续保存");
+      }
+    }
+    
+    let data = {
+      'type': currentNavId,
+      'authData': JSON.stringify(cookiesList),
+      'status': 1,
+      'customerId': sendId,
+    };
+
+    if (currentNavId == 1 || currentNavId == 9){
+      data.is_main = isMain;
+      data.position = position;
+    }
+    
+    if (existingAccount) {
+      data.id = existingAccount.id;
+    }
+    
+    const response = await axios.post(
       loginUrl + '/content/customer/account/saveAuth',
       data,
       { headers }
     );
-    console.log(response)
-    const result = response;
+    
+    const result = response.data;
     console.log('======result====save_user_cookies', result);
+    return result;
   } catch (error) {
     console.error('保存信息错误:', error);
+    return { success: false, message: error.message };
   }
 });
-//去验证用户的信息
-ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, token, sendId }) => {
-  const data = {
-    'type': currentNavId,
-    'json_str': JSON.stringify(cookiesList),
-    'time': Math.floor(Date.now() / 1000).toString(),
-    'send_id': sendId
-  };
-  const headers = {
-    'Content-Type': 'application/json',
-  };
+
+// 6. check_user_cookies (保持原样)
+ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, acc_id, position, is_main }) => {
+  const cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
+
   try {
-    const response = await axios.post(
-      checkUrl + '/desktop/check/sign/',
-      JSON.stringify(data),
-      { headers }
+    const checkResponse = await axios.get(
+      loginUrl + '/content/customer/account/list',
+      {
+        headers: { 'token': token },
+        params: {
+          type: currentNavId,
+          customerId: sendId,
+          position: position
+        }
+      }
     );
+    
+    const existingAccounts = checkResponse.data;
+    let existingAccount = null;
+    
+    if (existingAccounts && existingAccounts.length > 0) {
+      existingAccount = existingAccounts.find(account => account.position === position);
+    }
+    
+    if (existingAccount && existingAccount.acc_id && acc_id && existingAccount.acc_id === acc_id) {
+      console.log("账号数据已存在，跳过重复创建");
+      return { success: true, message: "账号已存在" };
+    }
+
+    const data = {
+      'type': currentNavId,
+      'json_str': JSON.stringify(cookiesToSave),
+      'time': Math.floor(Date.now() / 1000).toString(),
+      'send_id': sendId,
+      'acc_id': acc_id,
+      'position': position,
+      'is_main': is_main
+    };
+    
+    const headers = { 
+      'Content-Type': 'application/json',
+      'token': token
+    };
+
+    const response = await axios.post(`${checkUrl}/desktop/check/sign/`, JSON.stringify(data), { headers });
     return response.data;
   } catch (error) {
     console.error('请求失败:', error);
-    return null;
+    return { success: false, message: error.message };
   }
 });
-function validateString(input, expectedLength=19) {
-  // 检查输入是否是字符串类型
+
+// 7. 新增 save-account-cookies (新版本兼容)
+ipcMain.handle("save-account-cookies", async (event, { userId, type, position, cookies, acc_id }) => {
+  try {
+    // 生成保存请求的唯一ID
+    const saveRequestId = `save_${userId}_${type}_${position || 0}_${Date.now()}`;
+    
+    // 防止短时间内重复保存
+    if (isRequestPending(saveRequestId)) {
+      console.log('重复保存请求被阻止:', saveRequestId);
+      return { success: true, message: '保存已在进行中' };
+    }
+    
+    setRequestStatus(saveRequestId, 'pending');
+
+    // 处理Cookie数据格式
+    let processedCookies = [];
+    
+    if (typeof cookies === 'string') {
+      try {
+        const parsedCookies = JSON.parse(cookies);
+        if (Array.isArray(parsedCookies)) {
+          if (parsedCookies.length > 0 && Array.isArray(parsedCookies[0])) {
+            processedCookies = parsedCookies[0];
+          } else {
+            processedCookies = parsedCookies;
+          }
+        }
+      } catch (parseError) {
+        console.error('解析Cookie字符串失败:', parseError);
+        processedCookies = [];
+      }
+    } else if (Array.isArray(cookies)) {
+      processedCookies = cookies;
+    }
+
+    // 过滤重要Cookie
+    const importantCookies = processedCookies.filter(cookie => {
+      const importantNames = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'token', 'session', 'auth'];
+      return importantNames.some(name => cookie.name && cookie.name.includes(name));
+    });
+
+    // 发送到服务器保存
+    const response = await axios.post(`${checkUrl}/desktop/check/saveAccountCookies/`, {
+      user_id: userId,
+      type: type,
+      position: position,
+      cookies: JSON.stringify([importantCookies]),
+      acc_id: acc_id
+    });
+
+    setRequestStatus(saveRequestId, 'success');
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("保存账号Cookie失败:", error);
+    const saveRequestId = `save_${userId}_${type}_${position || 0}_${Date.now()}`;
+    setRequestStatus(saveRequestId, 'error');
+    return { success: false, error: error.message };
+  }
+});
+
+// 8. 新增 get-account-status
+ipcMain.handle('get-account-status', async (event, { userId, type }) => {
+  console.log('获取账号信息参数:', userId, type);
+  try {
+    const response = await axios.get(
+      `${checkUrl}/auth/accounts?user_id=${userId}&type_f=${type}`
+    );
+    
+    console.log(response.data,'账号状态信息++++++++++++++')
+    if (response.data.code === 200) {
+      console.log(response.data.data,'账号状态信息==================')
+      return {
+        success: true,
+        accounts: response.data.data
+      };
+    }
+    
+    return { success: false, message: '获取账号状态失败' };
+  } catch (error) {
+    console.error('获取账号状态错误:', error);
+    return { success: false, message: '网络错误' };
+  }
+});
+
+// 9. 新增 clear-account-cookies
+ipcMain.handle('clear-account-cookies', async (event, { accountId, menuId }) => {
+  try {
+    const partitionPatterns = [
+      `persist:account_${accountId}`,
+      `persist:account_acc_${accountId}`,
+      `persist:temp_${menuId}`
+    ];
+    
+    const domainMap = {
+      1: "https://baijiahao.baidu.com",
+      2: "https://mp.sohu.com",
+      3: "https://mp.toutiao.com",
+      4: "http://zs.open.chuangmaedu.com",
+      5: "https://mp.sina.com.cn",
+      6: "https://om.qq.com",
+      7: "https://mp.163.com",
+      8: "https://post.smzdm.com",
+      9: "https://agents.baidu.com"
+    };
+    
+    // 清除所有相关分区的数据
+    for (const pattern of partitionPatterns) {
+      try {
+        const accountSession = session.fromPartition(pattern);
+        await accountSession.clearStorageData({
+          storages: ['cookies', 'localstorage', 'indexdb']
+        });
+        console.log(`已清除分区 ${pattern} 的所有数据`);
+      } catch (err) {
+        console.log(`清除分区 ${pattern} 数据时出错:`, err);
+      }
+    }
+    
+    // 同时清除默认分区中对应域名的cookie
+    const defaultSession = session.fromPartition('persist:zhongshang');
+    if (domainMap[menuId]) {
+      try {
+        const cookies = await defaultSession.cookies.get({ url: domainMap[menuId] });
+        for (const cookie of cookies) {
+          await defaultSession.cookies.remove(domainMap[menuId], cookie.name);
+        }
+        console.log(`已清除默认分区在 ${domainMap[menuId]} 的所有cookie`);
+      } catch (err) {
+        console.log(`清除默认分区cookie时出错:`, err);
+      }
+    }
+    
+    return { success: true, message: `已清除账号相关数据` };
+  } catch (error) {
+    console.error('清除账号cookie失败:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// 10. 新增 open-url-in-new-window (智能体兼容)
+ipcMain.on('open-url-in-new-window', async (event, data) => {
+  const { url, partition, accountId, sendId } = data;
+
+  const mainState = windowStateKeeper({
+    defaultWidth: 1200,
+    defaultHeight: 800,
+    defaultCenter: true
+  });
+
+  const popupWindow = new BrowserWindow({
+    x: mainState.x,
+    y: mainState.y,
+    width: mainState.width,
+    height: mainState.height,
+    minWidth: 800,
+    minHeight: 600,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      partition: partition ? `persist:${partition}` : undefined,
+      webviewTag: false
+    },
+    backgroundColor: '#ffffff'
+  });
+
+  // 兼容两种分区命名方式
+  let accountPartition;
+  if (accountId) {
+    accountPartition = `persist:account_${accountId}`;
+  } else if (partition) {
+    accountPartition = `persist:${partition}`;
+  } else {
+    accountPartition = 'persist:zhongshang';
+  }
+  
+  const ses = session.fromPartition(accountPartition);
+
+  // 如果URL包含智能体相关，尝试设置智能体cookies
+  if (data.url.includes('wenxin') || data.url.includes('agents.baidu.com')) {
+    try {
+      // 首先尝试使用全局的agent_cookies
+      if (agent_cookies && agent_cookies.length > 0) {
+        for (const j of agent_cookies) {
+          try {
+            await ses.cookies.set({
+              url: "https://agents.baidu.com",
+              name: j.name,
+              value: j.value,
+              domain: j.domain || ".baidu.com",
+              secure: j.secure || true,
+              httpOnly: j.httpOnly || false,
+              path: j.path || "/",
+              expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000
+            });
+          } catch (cookieError) {
+            console.error('设置智能体cookie失败:', cookieError);
+          }
+        }
+        console.log('Agent cookies set for partition:', accountPartition);
+      }
+    } catch (e) {
+      console.error('Error setting agent cookies:', e);
+    }
+  }
+
+  popupWindow.loadURL(url);
+  popupWindow.on('closed', () => { });
+  if (!app.isPackaged) popupWindow.webContents.openDevTools();
+});
+
+// 添加检查用户是否为蓝V套餐的IPC处理函数
+ipcMain.handle('check-bluev-package', async (event, userId) => {
+  try {
+    console.log('检查用户蓝V套餐状态，用户ID:', userId);
+    
+    const response = await axios.get(
+      loginUrl + '/content/open/customer/checkCustomerIsBlueVPackage',
+      {
+        params: {
+          customerId: userId
+        }
+      }
+    );
+    
+    console.log('蓝V套餐检查结果:', response.data);
+    
+    if (response.data.code === 200) {
+      // 根据接口返回的数据判断是否为蓝V套餐用户
+      // 假设返回的数据中包含 isBlueVPackage 或类似字段
+      const isBlueV = response.data.data === true || response.data.data === 1 || response.data.data?.isBlueVPackage === true;
+      return {
+        success: true,
+        isBlueVPackage: isBlueV
+      };
+    }
+    
+    return { 
+      success: false, 
+      isBlueVPackage: false,
+      message: response.data.msg || '检查失败' 
+    };
+  } catch (error) {
+    console.error('检查蓝V套餐状态错误:', error);
+    return { 
+      success: false, 
+      isBlueVPackage: false,
+      message: '网络错误' 
+    };
+  }
+});
+
+// ============ 其他现有函数 ============
+
+function validateString(input, expectedLength = 19) {
   if (typeof input !== 'string') {
-      return false;
+    return false;
   }
-
-  // 检查字符串长度是否符合预期
   if (input.length !== expectedLength) {
-      return false;
+    return false;
   }
-
-  // 检查字符串是否以"19"开头
   return input.startsWith('19');
 }
-//登录的方法
+
 ipcMain.handle('login', async (event, credentials) => {
   const { username, password } = credentials;
   const responseData = {
     khUsername: username,
     khPassword: password,
-    // version: version
   };
+  
   if(username === password && validateString(password)){
     return {
       success: true,
-      token: '', // 假设返回数据中有 token 字段
-      sendId: username, // 假设返回数据中有 sendId 字段
-      userName:username,
-      userType:"0"
+      token: '',
+      sendId: username,
+      userName: username,
+      userType: "0"
     };
   }
-  // 2. 设置请求头
+  
   const headers = {
     'Content-Type': 'application/json'
   };
+  
   try {
-    // 使用 axios 发送 POST 请求
     const response = await axios.post(
       loginUrl + '/content/customer/pythonLogin',
-      JSON.stringify(responseData),      // 转换 JSON 字符串
+      JSON.stringify(responseData),
       { headers }
     );
     const result = response.data;
-    // 这里需要根据实际返回的数据结构来判断登录是否成功
-    if (result.code === 200) { // 假设返回数据中有 success 字段表示登录结果
-      // getUserCookies(result.msg)
-      console.log(result,'result==========')
+    
+    if (result.code === 200) {
       const val = result.data
+      
+      setTimeout(() => {
+        getUserCookies(val.id);
+      }, 500);
+      
       return {
         success: true,
-        token: val.token, // 假设返回数据中有 token 字段
-        sendId: val.id, // 假设返回数据中有 sendId 字段
-        userName:val.khName,
-        userType:val.userType
+        token: val.token,
+        sendId: val.id,
+        userName: val.khName,
+        userType: val.userType
       };
     } else {
       return { success: false, message: result.msg || '登录失败' };
@@ -496,7 +913,8 @@ ipcMain.handle('getMenuIsAuth', async (event, data) => {
     "zmt_tx": 6,
     "zmt_zdm": 7,
     "zmt_wy": 8
-  }
+  };
+  
   const headers = {
     'Content-Type': 'application/json'
   };
@@ -504,69 +922,106 @@ ipcMain.handle('getMenuIsAuth', async (event, data) => {
     id: id,
     dictValue: _type
   };
-  console.log(responseData, "划分权限接口")
+  
+  console.log(responseData, "划分权限接口");
   const response = await axios.get(
-    loginUrl + '/content/open/py/date/getMenuIsAuth',{ 
-      headers:headers,
+    loginUrl + '/content/open/py/date/getMenuIsAuth',
+    { 
+      headers: headers,
       params: responseData
     }
   );
+  
   const result = response.data;
-  console.log(result,'权限划分')
+  console.log(result,'权限划分');
   if (result.code === 200){
-    console.log(result,'result==========')
-    const val = result.data
+    const val = result.data;
     const zmt_id = zmt_mapping[_type];
-    return { [zmt_id]: val === '1' ? true : false }
+    return { [zmt_id]: val === '1' ? true : false };
   }
-})
+  
+  return {};
+});
+
+ipcMain.handle('unbind-account', async (event, { accountId, userId }) => {
+  try {
+    console.log('解绑账号参数:', accountId, userId);
+    
+    const response = await axios.post(
+      `${checkUrl}/auth/unbind`,
+      {},
+      {
+        params: {
+          account_id: accountId,
+          user_id: userId
+        },
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    console.log('解绑账号响应:', response.data);
+    
+    if (response.data.code === 200) {
+      return {
+        success: true,
+        message: response.data.message,
+        accountId: response.data.account_id
+      };
+    } else {
+      return {
+        success: false,
+        message: response.data.message || '解绑失败'
+      };
+    }
+  } catch (error) {
+    console.error('解绑账号错误:', error);
+    return {
+      success: false,
+      message: '网络错误，解绑失败'
+    };
+  }
+});
 
 ipcMain.on('open-main-window', (event, { token, sendId, userName }) => {
-  // 重置退出登录标志
   isLoggingOut = false;
-
   if (loginWindow) loginWindow.close();
   createMainWindow(token, sendId, userName);
 });
 
-ipcMain.on('open-user-list-window', (event, { token, sendId, userName,userType }) => {
-  // 重置退出登录标志
+ipcMain.on('open-user-list-window', (event, { token, sendId, userName, userType }) => {
   isLoggingOut = false;
-
   if (loginWindow) loginWindow.close();
-  createUserListWindow(token, sendId, userName,userType);
+  createUserListWindow(token, sendId, userName, userType);
 });
 
 ipcMain.on('logout', () => {
   console.log('用户退出登录');
   console.log('当前状态 - isLoggingOut:', isLoggingOut, 'mainWindow:', !!mainWindow, 'userListWindow:', !!userListWindow, 'loginWindow:', !!loginWindow);
 
-  // 设置退出登录标志
   isLoggingOut = true;
 
-  // 关闭主窗口
   if (mainWindow) {
     console.log('关闭主窗口');
     mainWindow.close();
     mainWindow = null;
   }
 
-  // 关闭用户列表窗口
   if (userListWindow) {
     console.log('关闭用户列表窗口');
     userListWindow.close();
     userListWindow = null;
   }
 
-  // 创建新的登录窗口
   setTimeout(() => {
     console.log('开始创建登录窗口');
     try {
+      clearCache();
       createLoginWindow();
       console.log('登录窗口创建成功');
     } catch (error) {
       console.error('创建登录窗口失败:', error);
-      // 如果创建失败，再次尝试
       setTimeout(() => {
         if (!loginWindow) {
           console.log('重新尝试创建登录窗口');
@@ -575,15 +1030,8 @@ ipcMain.on('logout', () => {
       }, 1000);
     }
 
-    // 重置标志
     isLoggingOut = false;
     console.log('重置退出登录标志');
-
-    // 延迟清理缓存，避免影响登录窗口加载
-    setTimeout(() => {
-      console.log('开始清理缓存');
-      clearCache();
-    }, 1000);
   }, 200);
 });
 
@@ -594,6 +1042,14 @@ ipcMain.on('close-window', (event) => {
   }
 });
 
+ipcMain.on("set-webview-user-agent", (event, userAgent) => {
+  app.userAgentFallback = userAgent;
+});
+
+ipcMain.on("enter-webview", (event, data) => {
+  console.log("进入WebView:", data);
+});
+
 ipcMain.on('move-window', (event, deltaX, deltaY) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
@@ -602,18 +1058,14 @@ ipcMain.on('move-window', (event, deltaX, deltaY) => {
   }
 });
 
-// 注册信息提示处理函数
 ipcMain.handle('show-message', async (event, options) => {
-  // 校验必要参数
   if (!options?.type || !options?.title) {
     throw new Error('缺少必要参数: type 或 title');
   }
   console.log('===弹框', options.title, options.message);
 
-  // 获取当前窗口
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
-    // 显示简单的通知对话框
     const result = await dialog.showMessageBox(win, {
       type: options.type || 'info',
       title: options.title,
@@ -626,19 +1078,17 @@ ipcMain.handle('show-message', async (event, options) => {
     return result;
   }
 
-  return { response: 0 }; // 默认返回
+  return { response: 0 };
 });
 
 // 自动更新相关逻辑
 function checkForUpdates() {
-  // 开发环境下的更新配置
   if (!app.isPackaged) {
     console.log('开发环境：启用更新检查-------kiafaa');
     autoUpdater.allowPrerelease = true;
     autoUpdater.allowDowngrade = true;
     autoUpdater.forceDevUpdateConfig = true;
     
-    // 设置开发环境下的更新配置
     autoUpdater.setFeedURL({
       provider: 'generic',
       url: 'http://123.56.169.44:9000/biaowang-content/electron-updates/',
@@ -646,12 +1096,11 @@ function checkForUpdates() {
     });
   }
 
-  autoUpdater.autoDownload = true; // 自动下载
-  autoUpdater.autoInstallOnAppQuit = false; // 不在退出时自动安装，由我们手动控制
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on('error', (error) => {
     console.error('更新出错:', error == null ? 'unknown' : (error.stack || error).toString());
-    // 开发环境下忽略某些错误
     if (!app.isPackaged) {
       console.log('开发环境：忽略更新错误，继续运行');
     }
@@ -690,13 +1139,10 @@ function checkForUpdates() {
     if (loginWindow) {
       loginWindow.webContents.send('update-downloaded', info);
     }
-    // setTimeout(() => {
-    //   autoUpdater.quitAndInstall();
-    // }, 1500);
   });
+  
   console.log('开始检查更新...');
   
-  // 开发环境下的错误处理
   try {
     autoUpdater.checkForUpdates();
   } catch (error) {
@@ -706,43 +1152,13 @@ function checkForUpdates() {
     }
   }
 }
+
 ipcMain.on('restart-to-update', () => {
   console.log('--------------------------dddddddddddddddd')
   autoUpdater.quitAndInstall();
 });
 
-app.whenReady().then(() => {
-  session.fromPartition('persist:zhongshang').setCertificateVerifyProc((request, callback) => {
-    callback(0); // 强制信任所有证书（不安全！）
-  });
-  // 全局请求拦截
-  const defaultSession = session.fromPartition('persist:zhongshang');
-  // defaultSession.webRequest.onBeforeSendHeaders(
-  //   { urls: ['*://*/*'] },
-  //   (details, callback) => {
-  //     const newHeaders = { ...details.requestHeaders };
-  //     newHeaders['User-Agent'] = getRandomUA();
-  //     newHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9,en;q=0.8';
-  //     callback({ requestHeaders: newHeaders });
-  //   }
-  // );
-  createLoginWindow();
-  app.on('activate', () => {
-    // guestView.register(); // 注册Guest View
-    // 只有在不是退出登录且没有窗口时才创建登录窗口
-    if (!isLoggingOut && BrowserWindow.getAllWindows().length === 0) {
-      createLoginWindow();
-    }
-  });
-  checkForUpdates();
-});
-
-app.on('window-all-closed', () => {
-  // 只有在不是退出登录时才退出应用
-  if (!isLoggingOut && process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+// ============ 辅助函数 ============
 
 function createPopupWindow(url) {
   const mainState = windowStateKeeper({
@@ -750,7 +1166,7 @@ function createPopupWindow(url) {
     defaultHeight: 900
   });
 
-  popupWindow = new BrowserWindow({
+  const popupWindow = new BrowserWindow({
     x: mainState.x,
     y: mainState.y,
     width: mainState.width,
@@ -767,17 +1183,15 @@ function createPopupWindow(url) {
     },
     backgroundColor: '#ffffff'
   });
+  
   popupWindow.loadURL(url);
-
-
   popupWindow.on('closed', () => {
     popupWindow = null;
   });
-  // 仅开发环境打开开发者工具
+  
   if (!app.isPackaged) {
     popupWindow.webContents.openDevTools();
   }
-
 }
 
 ipcMain.on('open-url', (event, url) => {
@@ -785,249 +1199,85 @@ ipcMain.on('open-url', (event, url) => {
   createPopupWindow(url);
 });
 
+const userCookieCache = new Map();
+
 async function getUserCookies(sendId) {
-    // 反向登录
-  console.log('---GET /desktop/save/agent/co/')
-  // 使用 axios 发送 get 请求
-  const response = await axios.get(
-    checkUrl + '/desktop/save/agent/co/?send_id=' + sendId
-  );
+  console.log('---GET /desktop/save/agent/co/ for user:', sendId);
+  try {
+    const response = await axios.get(`${checkUrl}/desktop/save/agent/co/?send_id=${sendId}`);
+    const coList = response.data.data || [];
 
-  // console.log(response.data)
-  const co_list = response.data.data;
-//   console.log(co_list, '11111111111')
-  for (const i of co_list) {
-    // console.log(i, '0000000000000000000000')
-    //智能体的cookies的设置
-    console.log(i.url,'i.url====================')
-    if (i.url.includes('https://agents.baidu.com')){
-      agent_cookies.push(...i.cookie);
-    //   console.log(agent_cookies.length,'------agent_cookies')
-      continue;
+    if (!userCookieCache.has(sendId)) {
+      userCookieCache.set(sendId, new Map());
     }
-    if (i.url.includes('https://zhiyou.smzdm.com')){
-      continue;
-    }
-    const p = i.cookie;
-    for (const j of p) {
-      // console.log(j, '-------')
-      let name = j.name;
-      let value = j.value;
-      // let domain = j.domain.startsWith('.') ? j.domain.substring(1) : j.domain;
-      let domain = j.domain;
-      let secure = j.secure;
-      let httpOnly = j.httpOnly;
-      let path = j.path
+    const userCache = userCookieCache.get(sendId);
 
-      // let expirationDate = j.Expires
-      // console.log(name,value)
-      // await session.fromPartition('persist:zhongshang').cookies.set(j);
-      await session.fromPartition('persist:zhongshang').cookies.set({
-        url: i.url,
-        name,
-        value,
-        options: {
-          httpOnly: httpOnly,
-          secure: secure,
-          path: path,
-          domain: domain,
-          expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000 // 30天过期
+    for (const item of coList) {
+      console.log(item.url, 'i.url====================');
+      if (item.url.includes('https://agents.baidu.com')) {
+        // 特殊处理 agent cookies - 同时保存到全局变量和用户缓存
+        agent_cookies = [...(agent_cookies || []), ...item.cookie];
+        console.log('智能体cookies已更新，数量:', agent_cookies.length);
+        
+        // 也保存到用户缓存
+        if (!userCache.has(9)) {
+          userCache.set(9, []);
         }
-      });
+        userCache.get(9).push(...item.cookie);
+        continue;
+      }
+      if (item.url.includes('https://zhiyou.smzdm.com')) {
+        continue;
+      }
+
+      const menuId = getMenuIdFromUrl(item.url);
+      if (menuId === undefined) continue;
+
+      if (!userCache.has(menuId)) {
+        userCache.set(menuId, []);
+      }
+      userCache.get(menuId).push(...item.cookie);
     }
+    console.log(`User ${sendId} cookies cached.`);
+  } catch (error) {
+    console.error('Error fetching user cookies:', error);
   }
-  // const sess = session.fromPartition('persist:zhongshang');
-  // const res = await sess.cookies.get({});
-  // for (const n of res) {
-  //   console.log('----------save--------------cookies:', n);
-  // }
+}
+
+function getMenuIdFromUrl(url) {
+  if (url.includes('baijiahao.baidu.com')) return 1;
+  if (url.includes('mp.sohu.com')) return 2;
+  if (url.includes('mp.toutiao.com')) return 3;
+  if (url.includes('zs.open.chuangmaedu.com')) return 4;
+  if (url.includes('mp.sina.com.cn')) return 5;
+  if (url.includes('om.qq.com')) return 6;
+  if (url.includes('mp.163.com')) return 7;
+  if (url.includes('post.smzdm.com')) return 8;
+  if (url.includes('agents.baidu.com')) return 9;
+  return undefined;
 }
 
 ipcMain.on('set-cookie', (event) => {
   console.log('----------------------')
 });
 
-ipcMain.handle("get-agent-cookies", () => {
-  try {
-    const safeCookies = agent_cookies.map(c => {
-      // 返回干净且基础类型的 cookie 对象
-      const clean = {};
-
-      // 强制转换所有字段为基础类型
-      clean.name = String(c.name || "");
-      clean.value = String(c.value || "");
-      clean.domain = String(c.domain || ".baidu.com"); // 确保 domain 总是字符串
-      clean.path = String(c.path || "/");
-      clean.secure = Boolean(c.secure); // 转换为布尔值
-      clean.httpOnly = Boolean(c.httpOnly); // 转换为布尔值
-
-      // 处理 session 和 expirationDate 字段
-      clean.session = Boolean(c.session); // 确保是布尔值
-      clean.expirationDate = c.session ? undefined : (Number(c.expirationDate) || undefined); // 转换 expirationDate 为数字（如果有）
-
-      return clean;
-    });
-
-    console.log("返回清理后的安全 cookie:", safeCookies);
-    return safeCookies; // 返回清理后的 cookie 数组
-
-  } catch (err) {
-    console.error("序列化失败:", err);
-    return []; // 出现异常时返回空数组
-  }
-});
-
-
-ipcMain.on('open-url-in-new-window', async (event, data) => {
-  const { url, partition } = data;
-  // 1. 创建带分区的新窗口
-  const mainState = windowStateKeeper({
-    defaultWidth: 1200,
-    defaultHeight: 800,
-    defaultCenter: true
-  });
-  const popupWindow = new BrowserWindow({
-    x: mainState.x,
-    y: mainState.y,
-    width: mainState.width,
-    height: mainState.height,
-    minWidth: 800,
-    minHeight: 600,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      partition: partition ? `persist:${partition}` : undefined,
-      webviewTag: false
-    },
-    backgroundColor: '#ffffff'
-  });
-  const ses = session.fromPartition(`persist:${partition}`);
-  console.log('-----persist----',`persist:${partition}`)
-  // 2. 先清除所有cookie
-  // try {
-  //   await ses.clearStorageData({ storages: ['cookies'] });
-  // } catch (e) {
-  //   console.log('清除cookie失败', e);
-  // }
-  // console.log('-----agent_cookies',agent_cookies)
-  // 3. 再设置cookie（如果有）
-  if (agent_cookies && agent_cookies.length > 0) {
-    try {
-      for (j of agent_cookies){
-        let name = j.name;
-        let value = j.value;
-        let domain = j.domain;
-        let secure = j.secure || true;
-        let httpOnly = j.httpOnly;
-        let path = j.path
-        await ses.cookies.set({
-            url: "https://agents.baidu.com",
-            name,
-            value,
-            options: {
-            httpOnly: httpOnly,
-            secure: secure,
-            path: path,
-            domain: domain,
-            sameSite: 'no_restriction',
-            expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000 // 30天过期
-            }
-      });
-      }
-      // await ses.cookies.set(data.cookie);
-    } catch (e) {
-      console.log('设置cookie-set失败', e);
-    }
-  }
-  // 4. 加载页面
-  popupWindow.loadURL(url);
-  popupWindow.on('closed', () => {});
-  if (!app.isPackaged) popupWindow.webContents.openDevTools();
-});
-
-// 创建浏览器窗口
-function createBrowserWindow() {
-  const browserState = windowStateKeeper({
-    defaultWidth: 1400,
-    defaultHeight: 900,
-    defaultCenter: true
-  });
-
-  const browserWindow = new BrowserWindow({
-    x: browserState.x,
-    y: browserState.y,
-    width: browserState.width,
-    height: browserState.height,
-    minWidth: 1200,
-    minHeight: 800,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      webviewTag: true,
-      enablePreferredSizeMode: true,
-      autoplayPolicy: 'user-gesture-required'
-    },
-    backgroundColor: '#ffffff',
-    title: '中商浏览器',
-    icon: path.join(__dirname, 'build', 'icon.ico')
-  });
-
-  browserState.manage(browserWindow);
-  browserWindow.loadFile(path.join(__dirname, 'renderer', 'browser.html'));
-
-  // 设置窗口标题
-  browserWindow.on('page-title-updated', (event) => {
-    event.preventDefault();
-  });
-
-  browserWindow.on('closed', () => {
-    // 浏览器窗口关闭时的处理
-  });
-
-  // 仅开发环境打开开发者工具
-  if (!app.isPackaged) {
-    browserWindow.webContents.openDevTools();
-  }
-
-  return browserWindow;
-}
-
-// IPC 处理 - 打开浏览器
-ipcMain.on('open-browser', (event) => {
-  createBrowserWindow();
-});
-
-// IPC 处理 - 在浏览器中打开URL
-ipcMain.on('open-url-in-browser', (event, url) => {
-  const browserWindow = createBrowserWindow();
-  browserWindow.webContents.on('did-finish-load', () => {
-    browserWindow.webContents.send('navigate-to-url', url);
-  });
-});
-
-
-//获取服务商的子账户列表
-ipcMain.handle('get_user_list', async (event,token,khName='',khUsername='',userType=1,pageSize=10,pageNum=1,khPhone='') => {
-  // 2. 设置请求头
+// 获取服务商的子账户列表
+ipcMain.handle('get_user_list', async (event, token, khName = '', khUsername = '', userType = 1, pageSize = 10, pageNum = 1, khPhone = '') => {
   const headers = {
-    // 'Content-Type': 'application/json',
-    'token':token
+    'token': token
   };
+  
   try {
-    // 使用 axios 发送 POST 请求
     const response = await axios.get(
-      // params,
       loginUrl + `/content/customer/getCustomerList?userType=${userType}&pageSize=${pageSize}&khName=${khName}&khUsername=${khUsername}&pageNum=${pageNum}&khPhone=${khPhone}`,
       { headers }
     );
+    
     const result = response.data;
-    console.log(result,'result==========2222')
-    // 这里需要根据实际返回的数据结构来判断登录是否成功
-    if (result.code === 200) { // 假设返回数据中有 success 字段表示登录结果
-      // getUserCookies(result.msg)
-      console.log(result,'result==========')
+    console.log(result,'result==========2222');
+    
+    if (result.code === 200) {
+      console.log(result,'result==========');
       return result;
     } else {
       return { success: false, message: result.msg || '登录失败' };
@@ -1038,9 +1288,32 @@ ipcMain.handle('get_user_list', async (event,token,khName='',khUsername='',userT
   }
 });
 
-// 导出函数供其他模块使用
+// ============ 应用启动 ============
+
+app.whenReady().then(() => {
+  session.fromPartition('persist:zhongshang').setCertificateVerifyProc((request, callback) => {
+    callback(0); // 强制信任所有证书（不安全！）
+  });
+  
+  createLoginWindow();
+  
+  app.on('activate', () => {
+    if (!isLoggingOut && BrowserWindow.getAllWindows().length === 0) {
+      createLoginWindow();
+    }
+  });
+  
+  checkForUpdates();
+});
+
+app.on('window-all-closed', () => {
+  if (!isLoggingOut && process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
 module.exports = {
-  createBrowserWindow,
+  // createBrowserWindow,
   createLoginWindow,
   createMainWindow
 };
