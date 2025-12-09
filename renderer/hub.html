@@ -1,473 +1,428 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>账号绑定</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-      }
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial,
-          sans-serif;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>账号绑定</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
 
-      body {
-        background: #f5f7fa;
-        display: flex;
-      }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial,
+        sans-serif;
+    }
 
-      .hub-container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
+    body {
+      background: #f5f7fa;
+      display: flex;
+    }
 
+    .hub-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .hub-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 20px;
+      background: white;
+      border-bottom: 1px solid #e9ecef;
+      flex-shrink: 0;
+    }
+
+    .hub-header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .hub-header p {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .accounts-section {
+      flex: 1;
+      padding: 20px;
+      background: #f5f7fa;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .accounts-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      row-gap: 16px;
+      column-gap: 16px;
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: 10px;
+    }
+
+    @media (max-width: 1200px) {
+      .accounts-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .accounts-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .accounts-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .accounts-grid::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .accounts-grid::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .accounts-grid::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+    }
+
+    .accounts-grid::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .account-card {
+      border: 1px solid #dee2e6;
+      border-radius: 20px;
+      padding: 17px 16px;
+      height: 252px;
+      min-width: 0;
+      max-width: 100%;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      position: relative;
+    }
+
+    .account-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+      border-color: #667eea;
+    }
+
+    .account-card-header {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .account-icon {
+      font-size: 32px;
+      width: 63px;
+      height: 63px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .account-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .account-platform {
+      font-weight: bold;
+      font-size: 15px;
+      color: #2c2c36;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      margin-top: 40px;
+      margin-left: 15px;
+    }
+
+    .account-name {
+      font-weight: 400;
+      font-size: 14px;
+      color: #585a73;
+      margin-top: 17px;
+    }
+
+    .account-status-default {
+      width: 63px;
+      height: 16px;
+      border-radius: 3px;
+      display: flex;
+      justify-content: center;
+      font-weight: 400;
+      font-size: 11px;
+      color: #ffffff;
+      background: #418dff;
+    }
+
+    .account-status-active {
+      display: flex;
+      justify-content: center;
+      width: 63px;
+      height: 16px;
+      background: #00c433;
+      border-radius: 3px;
+      font-weight: 400;
+      font-size: 11px;
+      color: #ffffff;
+    }
+
+    .account-btn {
+      width: 100px;
+      height: 25px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      /* 移除边框 */
+      outline: none;
+      /* 移除焦点轮廓 */
+      transition: all 0.3s ease;
+      /* 如果需要过渡效果 */
+    }
+
+    .enter-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .delete-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin-left: 24px;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      background: white;
+      border-radius: 12px;
+      margin: 20px;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      opacity: 0.5;
+    }
+
+    .empty-text {
+      font-size: 16px;
+      color: #666;
+    }
+
+    .empty-subtext {
+      font-size: 13px;
+      color: #999;
+    }
+
+    @media (max-width: 768px) {
       .hub-header {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        padding: 20px;
-        background: white;
-        border-bottom: 1px solid #e9ecef;
-        flex-shrink: 0;
+        padding: 16px;
       }
 
       .hub-header h1 {
-        font-size: 24px;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .hub-header p {
-        font-size: 14px;
-        color: #666;
+        font-size: 20px;
       }
 
       .accounts-section {
-        flex: 1;
-        padding: 20px;
-        background: #f5f7fa;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        overflow: hidden;
+        padding: 16px;
       }
 
       .accounts-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        row-gap: 16px; /* 行间距（上下间距）*/
-        column-gap: 16px; /* 列间距（左右间距）*/
-        width: 100%;
-        /* flex: 1; */
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding-top: 10px;
-        /* grid-auto-rows: minmax(80px, auto); */
+        grid-template-columns: 1fr;
       }
+    }
 
-      .accounts-grid::-webkit-scrollbar {
-        width: 6px;
+    /* 主账号卡片样式 */
+    .main-account-card {
+      border: 2px solid #0066cc;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+    }
+
+    /* 状态显示 */
+    .account-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #28a745;
+    }
+
+    /* 操作按钮 */
+    .account-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      bottom: 23px;
+      width: 100%;
+    }
+
+    /* 新增的主账号标识 */
+    .main-account-badge {
+      position: absolute;
+      top: 24px;
+      left: 94px;
+      width: 20px;
+      height: 20px;
+      background: #D80000;
+      border-radius: 3px;
+      font-weight: normal;
+      font-size: 11px;
+      color: #FFFFFF;
+      display: flex;
+      /* align-items: center; */
+      justify-content: center;
+      padding-top: 2px;
+    }
+
+    /* 账号信息展示 */
+    .account-details {
+      display: flex;
+      justify-content: space-between;
+      margin: 17px 0 20px 0;
+      padding: 0 5px;
+    }
+
+    .account-detail-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .account-detail-label {
+      font-weight: 400;
+      font-size: 14px;
+      color: #585A73;
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      text-align: center;
+    }
+
+    .account-detail-value {
+      font-weight: bold;
+      font-size: 21px;
+      color: #585A73;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* 平台专属按钮颜色 - 严格按要求设置 */
+      .btn-color-baijia {
+        background: #418dff !important;
       }
-
-      .accounts-grid::-webkit-scrollbar-track {
-        background: transparent;
+      .btn-color-sohu {
+        background: #fb843f !important;
       }
-
-      .accounts-grid::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 3px;
+      .btn-color-tencent {
+        background: #fbc13f !important; /* 腾讯固定颜色 */
       }
-
-      .accounts-grid::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 0, 0, 0.3);
+      .btn-color-163 {
+        background: #fb3b3b !important; /* 网易固定颜色 */
       }
-
-      .account-card {
+      .btn-color-wechat {
+        background: #6fd169 !important; /* 微信公众号固定颜色 */
+      }
+      .btn-color-wenxin{
+        background: #3c43ff !important;
+      }
+      /* 平台专属卡片背景 */
+      .card-bg-baijia {
+        background: url("./images/baibg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-sohu {
+        background: url("./images/soubg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-wechat {
+        background: url("./images/weibg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-163 {
+        background: url("./images/wangbg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-tencent {
+        background: url("./images/tengbg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-default {
         background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 12px;
-        padding: 18px;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        height: fit-content;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
       }
-
-      .account-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
-        border-color: #667eea;
+      /* 新增文心智能体背景图 */
+      .card-bg-wenxin {
+          background: url("./images/wenbg.png");
+          background-repeat: no-repeat;
+          background-size: 100% 100%;
       }
+  </style>
+</head>
 
-      .account-card-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-      }
-
-      .account-icon {
-        font-size: 32px;
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(102, 126, 234, 0.1);
-        border-radius: 8px;
-        flex-shrink: 0;
-      }
-
-      .account-info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-      }
-
-      .account-platform {
-        font-size: 14px;
-        font-weight: 600;
-        color: #333;
-        word-break: break-word;
-      }
-
-      .account-name {
-        font-size: 12px;
-        color: #999;
-        word-break: break-word;
-      }
-
-      .account-status {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: #28a745;
-      }
-
-      .status-dot {
-        width: 6px;
-        height: 6px;
-        background: #28a745;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-
-      .account-actions {
-        display: flex;
-        gap: 8px;
-        padding-top: 12px;
-        border-top: 1px solid #e9ecef;
-        flex-wrap: wrap;
-      }
-
-      .account-btn {
-        flex: 1;
-        padding: 10px 16px;
-        border: none;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        min-width: 70px;
-      }
-
-      .enter-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .enter-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-      }
-
-      .delete-btn {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
-      }
-
-      .delete-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-      }
-
-      .add-account-btn {
-        padding: 14px 20px;
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        flex-shrink: 0;
-        height: fit-content;
-      }
-
-      .add-account-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-      }
-
-      .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-        padding: 40px 20px;
-        text-align: center;
-        background: white;
-        border-radius: 12px;
-        margin: 20px;
-      }
-
-      .empty-icon {
-        font-size: 48px;
-        opacity: 0.5;
-      }
-
-      .empty-text {
-        font-size: 16px;
-        color: #666;
-      }
-
-      .empty-subtext {
-        font-size: 13px;
-        color: #999;
-      }
-
-      @media (max-width: 768px) {
-        .hub-header {
-          padding: 16px;
-        }
-
-        .hub-header h1 {
-          font-size: 20px;
-        }
-
-        .accounts-section {
-          padding: 16px;
-        }
-
-        .accounts-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      /* 添加新的样式规则 */
-      .account-card {
-        background: white;
-        border: 1px solid #d9e6f2;
-        border-radius: 8px;
-        padding: 16px;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        height: fit-content;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        position: relative;
-      }
-
-      .account-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
-        border-color: #667eea;
-      }
-
-      /* 主账号卡片样式 */
-      .main-account-card {
-        border: 2px solid #0066cc;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
-      }
-
-      /* 账号卡片头部 */
-      .account-card-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-      }
-
-      .account-icon {
-        font-size: 32px;
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(102, 126, 234, 0.1);
-        border-radius: 8px;
-        flex-shrink: 0;
-      }
-
-      .account-info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-      }
-
-      .account-platform {
-        font-size: 14px;
-        font-weight: 600;
-        color: #333;
-        word-break: break-word;
-      }
-
-      .account-name {
-        font-size: 12px;
-        color: #999;
-        word-break: break-word;
-      }
-
-      /* 状态显示 */
-      .account-status {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: #28a745;
-      }
-
-      .status-dot {
-        width: 6px;
-        height: 6px;
-        background: #28a745;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-
-      /* 操作按钮 */
-      .account-actions {
-        display: flex;
-        gap: 8px;
-        padding-top: 12px;
-        border-top: 1px solid #e9ecef;
-        flex-wrap: wrap;
-      }
-
-      .account-btn {
-        flex: 1;
-        padding: 10px 16px;
-        border: none;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        min-width: 70px;
-      }
-
-      .enter-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .enter-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-      }
-
-      .delete-btn {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
-      }
-
-      .delete-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-      }
-
-      /* 新增的主账号标识 */
-      .main-account-badge {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: #ff4d4d;
-        color: white;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: bold;
-      }
-
-      /* 账号信息展示 */
-      .account-details {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 8px;
-      }
-
-      .account-detail-item {
-        display: flex;
-        justify-content: space-between;
-        font-size: 12px;
-        color: #666;
-      }
-
-      .account-detail-label {
-        font-weight: 500;
-      }
-
-      .account-detail-value {
-        font-weight: 600;
-      }
-
-      /* 账号状态标签 */
-      .account-status-tag {
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-      }
-
-      .account-status-active {
-        background: #d4edda;
-        color: #155724;
-      }
-
-      .account-status-pending {
-        background: #fff3cd;
-        color: #856404
-      }
-    </style>
-  </head>
-
-  <body>
-    <div class="hub-container">
-      <div class="hub-header">
-        <div>
-          <h1 id="hubTitle">账号管理</h1>
-          <p id="hubSubtitle">点击下方卡片进入对应账号平台</p>
-        </div>
+<body>
+  <div class="hub-container">
+    <div class="hub-header">
+      <div>
+        <h1 id="hubTitle">账号管理</h1>
+        <!-- <p id="hubSubtitle">点击下方卡片进入对应账号平台</p> -->
       </div>
-      <div class="accounts-section">
+    </div>
+    <div class="accounts-section">
       <div class="accounts-grid" id="accountsGrid"></div>
     </div>
   </div>
@@ -476,7 +431,7 @@
     // 防抖函数
     function debounce(func, delay) {
       let timeout;
-      return function(...args) {
+      return function (...args) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), delay);
       };
@@ -485,8 +440,28 @@
     let currentMenuId = null;
     let navItems = [];
     let accounts = {};
-    let showMultipleAccounts = false; // 是否显示多个账号，主要用于百家号和文心智能体
+    let showMultipleAccounts = true; // 是否显示多个账号，主要用于百家号和文心智能体
     let currentUserData = null; //作为用户数据隔离
+
+      // 平台颜色映射表 - 严格按要求配置
+      const platformColorMap = {
+        1: "btn-color-baijia", // 百家号 - #418DFF （固定）
+        2: "btn-color-sohu", // 搜狐 - #FB843F （固定）
+        6: "btn-color-tencent", // 腾讯 - #FBC13F（固定）
+        8: "btn-color-163", // 网易 - #FB3B3B（固定）
+        4: "btn-color-wechat", // 微信公众号 - #6FD169（固定）
+        9: 'btn-color-wenxin',// 文心智能体 - #3c43ff （固定）
+      };
+
+      // 平台卡片背景映射表
+      const platformCardBgMap = {
+        1: "card-bg-baijia", // 百家号 - baibg.png
+        2: "card-bg-sohu", // 搜狐 - soubg.png
+        4: "card-bg-wechat", // 微信公众号 - weibg.png
+        8: "card-bg-163", // 网易 - wangbg.png
+        6: "card-bg-tencent", // 腾讯 - tengbg.png
+        9: "card-bg-wenxin",
+      };
 
     window.addEventListener("message", (event) => {
       console.log("接收到消息", event.data);
@@ -501,7 +476,7 @@
             accounts[currentUserData.sendId] = {};
           }
           // 检查用户是否为蓝V套餐用户
-          checkBlueVPackageStatus(currentUserData.sendId);
+          //showMultipleAccounts =  checkBlueVPackageStatus(currentUserData.sendId);
         }
         console.log("选择菜单", currentMenuId, "导航项数量", navItems.length);
         renderAccounts();
@@ -524,9 +499,10 @@
       }
 
       try {
-        const electronAPI = window.electronAPI || (window.parent && window.parent.electronAPI);
+        const electronAPI =
+          window.electronAPI || (window.parent && window.parent.electronAPI);
         if (!electronAPI) {
-          console.error('无法调用接口数据');
+          console.error("无法调用接口数据");
           return;
         }
 
@@ -534,21 +510,22 @@
         const menuIdToTypeMap = {
           1: 1,
           2: 2,
-          3: 3,
           4: 4,
-          5: 5,
-          6: 6,
-          7: 7,
           8: 8,
-          9: 9
+          9: 9,
         };
 
         const platformType = menuIdToTypeMap[currentMenuId] || currentMenuId;
 
-        console.log("正在调用 getAccountStatus 当前 userId:", currentUserData.sendId, "type:", platformType);
+        console.log(
+          "正在调用 getAccountStatus 当前 userId:",
+          currentUserData.sendId,
+          "type:",
+          platformType
+        );
         const result = await electronAPI.getAccountStatus({
           userId: currentUserData.sendId,
-          type: platformType
+          type: platformType,
         });
 
         console.log("调用getAccountStatus 结果为:", result);
@@ -572,111 +549,145 @@
               return posA - posB;
             });
 
-            accounts[currentUserData.sendId][currentMenuId].forEach((account, index) => {
-              const position = account.position || (index + 1);
-              let serverAccount = null;
+            accounts[currentUserData.sendId][currentMenuId].forEach(
+              (account, index) => {
+                const position = account.position || index + 1;
+                let serverAccount = null;
 
-              // 对于百家号和文心智能体，需要考虑is_main字段
-              if (currentMenuId === 1 || currentMenuId === 9) {
-                // 统一处理 is_main：可能是 1/0 或 true/false
-                const normalizeIsMain = (val) => {
-                  if (val === true || val === 1) return 1;
-                  if (val === false || val === 0) return 0;
-                  return 0;
-                };
+                // 对于百家号和文心智能体，需要考虑is_main字段
+                if (currentMenuId === 1 || currentMenuId === 9) {
+                  // 统一处理 is_main：可能是 1/0 或 true/false
+                  const normalizeIsMain = (val) => {
+                    if (val === true || val === 1) return 1;
+                    if (val === false || val === 0) return 0;
+                    return 0;
+                  };
 
-                const accountIsMain = normalizeIsMain(account.isMain);
+                  const accountIsMain = normalizeIsMain(account.isMain);
 
-                // 首先尝试精确匹配：position 和 is_main 都匹配
-                serverAccount = sortedServerAccounts.find(acc => {
-                  const accIsMain = normalizeIsMain(acc.is_main);
-                  const accPosition = acc.position || 0;
-                  const accId = acc.acc_id;
+                  // 首先尝试精确匹配：position 和 is_main 都匹配
+                  serverAccount = sortedServerAccounts.find((acc) => {
+                    const accIsMain = normalizeIsMain(acc.is_main);
+                    const accPosition = acc.position || 0;
+                    const accId = acc.acc_id;
 
-                  return accPosition === position &&
-                    accIsMain === accountIsMain &&
-                    accId &&
-                    !usedServerAccountIds.has(accId);
-                });
+                    return (
+                      accPosition === position &&
+                      accIsMain === accountIsMain &&
+                      accId &&
+                      !usedServerAccountIds.has(accId)
+                    );
+                  });
 
-                // 如果没有精确匹配，尝试仅匹配 position（但优先匹配主账号）
-                if (!serverAccount) {
-                  // 先尝试匹配主账号
-                  if (position === 1) {
-                    serverAccount = sortedServerAccounts.find(acc => {
-                      const accIsMain = normalizeIsMain(acc.is_main);
-                      const accPosition = acc.position || 0;
-                      const accId = acc.acc_id;
-
-                      return accPosition === position &&
-                        accIsMain === 1 &&
-                        accId &&
-                        !usedServerAccountIds.has(accId);
-                    });
-                  }
-
-                  // 如果还没找到，匹配任意 position 相同的账号
+                  // 如果没有精确匹配，尝试仅匹配 position（但优先匹配主账号）
                   if (!serverAccount) {
-                    serverAccount = sortedServerAccounts.find(acc => {
-                      const accPosition = acc.position || 0;
-                      const accId = acc.acc_id;
+                    // 先尝试匹配主账号
+                    if (position === 1) {
+                      serverAccount = sortedServerAccounts.find((acc) => {
+                        const accIsMain = normalizeIsMain(acc.is_main);
+                        const accPosition = acc.position || 0;
+                        const accId = acc.acc_id;
 
-                      return accPosition === position &&
-                        accId &&
-                        !usedServerAccountIds.has(accId);
-                    });
+                        return (
+                          accPosition === position &&
+                          accIsMain === 1 &&
+                          accId &&
+                          !usedServerAccountIds.has(accId)
+                        );
+                      });
+                    }
+
+                    // 如果还没找到，匹配任意 position 相同的账号
+                    if (!serverAccount) {
+                      serverAccount = sortedServerAccounts.find((acc) => {
+                        const accPosition = acc.position || 0;
+                        const accId = acc.acc_id;
+
+                        return (
+                          accPosition === position &&
+                          accId &&
+                          !usedServerAccountIds.has(accId)
+                        );
+                      });
+                    }
+                  }
+                } else {
+                  // 其他平台只需匹配 position
+                  serverAccount = sortedServerAccounts.find((acc) => {
+                    const accPosition = acc.position || 0;
+                    const accId = acc.acc_id;
+
+                    return (
+                      accPosition === position &&
+                      accId &&
+                      !usedServerAccountIds.has(accId)
+                    );
+                  });
+                }
+
+                console.log(
+                  `位置 ${position} 的账号匹配结果:`,
+                  serverAccount
+                );
+
+                if (serverAccount) {
+                  // 标记这个服务器账号已被使用
+                  if (serverAccount.acc_id) {
+                    usedServerAccountIds.add(serverAccount.acc_id);
+                  }
+
+                  console.log(
+                    `服务器账号数据 (position ${position}):`,
+                    JSON.stringify(serverAccount, null, 2)
+                  );
+                  console.log(
+                    `userData 存在:`,
+                    !!serverAccount.userData,
+                    "userData 内容:",
+                    serverAccount.userData
+                  );
+
+                  const newStatus =
+                    serverAccount.acc_id !== null &&
+                      serverAccount.acc_id !== undefined
+                      ? "active"
+                      : "pending";
+
+                  // 检查是否需要更新
+                  const serverDataChanged =
+                    !account.serverData ||
+                    account.serverData.acc_id !== serverAccount.acc_id ||
+                    JSON.stringify(account.serverData) !==
+                    JSON.stringify(serverAccount);
+
+                  if (account.status !== newStatus || serverDataChanged) {
+                    account.status = newStatus;
+                    account.serverData = serverAccount;
+                    // 更新账号名称（如果服务器有返回）
+                    if (
+                      serverAccount.userData &&
+                      serverAccount.userData.nikeName
+                    ) {
+                      account.name = serverAccount.userData.nikeName;
+                    }
+                    hasChanges = true;
+                    console.log(
+                      `更新账户 ${account.id} (position: ${position})，服务器账号ID: ${serverAccount.acc_id}`
+                    );
+                  }
+                } else {
+                  // 如果没有匹配到服务器账号，且当前账号状态不是 pending，则重置
+                  if (account.status !== "pending") {
+                    account.status = "pending";
+                    delete account.serverData;
+                    hasChanges = true;
+                    console.log(
+                      `重置账户 ${account.id} (position: ${position}) 为 pending 状态`
+                    );
                   }
                 }
-              } else {
-                // 其他平台只需匹配 position
-                serverAccount = sortedServerAccounts.find(acc => {
-                  const accPosition = acc.position || 0;
-                  const accId = acc.acc_id;
-
-                  return accPosition === position &&
-                    accId &&
-                    !usedServerAccountIds.has(accId);
-                });
               }
-
-              console.log(`位置 ${position} 的账号匹配结果:`, serverAccount);
-
-              if (serverAccount) {
-                // 标记这个服务器账号已被使用
-                if (serverAccount.acc_id) {
-                  usedServerAccountIds.add(serverAccount.acc_id);
-                }
-                
-                console.log(`服务器账号数据 (position ${position}):`, JSON.stringify(serverAccount, null, 2));
-                console.log(`userData 存在:`, !!serverAccount.userData, "userData 内容:", serverAccount.userData);
-
-                const newStatus = serverAccount.acc_id !== null && serverAccount.acc_id !== undefined ? "active" : "pending";
-
-                // 检查是否需要更新
-                const serverDataChanged = !account.serverData ||
-                  account.serverData.acc_id !== serverAccount.acc_id ||
-                  JSON.stringify(account.serverData) !== JSON.stringify(serverAccount);
-
-                if (account.status !== newStatus || serverDataChanged) {
-                  account.status = newStatus;
-                  account.serverData = serverAccount;
-                  // 更新账号名称（如果服务器有返回）
-                  if (serverAccount.userData && serverAccount.userData.nikeName) {
-                    account.name = serverAccount.userData.nikeName;
-                  }
-                  hasChanges = true;
-                  console.log(`更新账户 ${account.id} (position: ${position})，服务器账号ID: ${serverAccount.acc_id}`);
-                }
-              } else {
-                // 如果没有匹配到服务器账号，且当前账号状态不是 pending，则重置
-                if (account.status !== "pending") {
-                  account.status = "pending";
-                  delete account.serverData;
-                  hasChanges = true;
-                  console.log(`重置账户 ${account.id} (position: ${position}) 为 pending 状态`);
-                }
-              }
-            });
+            );
 
             if (hasChanges) {
               console.log("账号状态有变化，重新渲染");
@@ -687,501 +698,561 @@
           }
         }
       } catch (error) {
-        console.error('获取账号状态失败:', error);
+        console.error("获取账号状态失败:", error);
       }
     }
 
     const debouncedUpdateAccountStatus = debounce(updateAccountStatus, 300);
 
+    //授权时间处理格式
+    function formatAuthTime(timeStr) {
+      if (!timeStr) return "";
+
+      const date = new Date(timeStr);
+      // 处理解析失败的情况
+      if (isNaN(date.getTime())) return timeStr;
+
+      // 补零函数（确保月份/日期/时分秒为两位数）
+      const padZero = (num) => num.toString().padStart(2, "0");
+
+      const year = date.getFullYear();
+      const month = padZero(date.getMonth() + 1); // 月份从0开始，需+1
+      const day = padZero(date.getDate());
+      const hours = padZero(date.getHours());
+      const minutes = padZero(date.getMinutes());
+      const seconds = padZero(date.getSeconds());
+
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
     function renderAccounts(shouldUpdateStatus = true) {
-        console.log("调用了renderAccounts 用户ID为:", currentMenuId);
-        const accountsGrid = document.getElementById("accountsGrid");
+      console.log("调用了renderAccounts 用户ID为:", currentMenuId);
+      const accountsGrid = document.getElementById("accountsGrid");
 
-        console.log("账户网格元素:", accountsGrid);
-        console.log("账户父级元素:", accountsGrid?.parentElement);
+      console.log("账户网格元素:", accountsGrid);
+      console.log("账户父级元素:", accountsGrid?.parentElement);
 
-        if (currentMenuId === null || currentMenuId === undefined || !currentUserData) {
-          console.log("无菜单ID，显示空状态");
-          showEmptyState();
-          return;
-        }
+      if (
+        currentMenuId === null ||
+        currentMenuId === undefined ||
+        !currentUserData
+      ) {
+        console.log("无菜单ID，显示空状态");
+        showEmptyState();
+        return;
+      }
 
-        // 确保当前用户有账户存储空间
-        if (!accounts[currentUserData.sendId]) {
-          accounts[currentUserData.sendId] = {};
-        }
-        // if (currentMenuId === 9) {
-        //   // 文心智能体的ID
-        //   // 生成5个固定账号
-        //   accounts[currentMenuId] = [
-        //     {
-        //       id: "wenxin_1",
-        //       name: "文心智能体账号1",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 9,
-        //     },
-        //     {
-        //       id: "wenxin_2",
-        //       name: "文心智能体账号2",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 9,
-        //     },
-        //     {
-        //       id: "wenxin_3",
-        //       name: "文心智能体账号3",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 9,
-        //     },
-        //     {
-        //       id: "wenxin_4",
-        //       name: "文心智能体账号4",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 9,
-        //     },
-        //     {
-        //       id: "wenxin_5",
-        //       name: "文心智能体账号5",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 9,
-        //     },
-        //   ];
-        // }
+      // 确保当前用户有账户存储空间
+      if (!accounts[currentUserData.sendId]) {
+        accounts[currentUserData.sendId] = {};
+      }
+      
 
-
-        // 文心智能体受 showMultipleAccounts 控制
-        if (currentMenuId === 9) {
-          if (showMultipleAccounts) {
-            // 生成5个固定账号
-            accounts[currentUserData.sendId][currentMenuId] = [
-              {
-                id: "wenxin_1",
-                name: "文心智能体账号1",
-                icon: "🤖",
-                status: "pending",
-                menuId: 9,
-                position: 1
-              },
-              {
-                id: "wenxin_2",
-                name: "文心智能体账号2",
-                icon: "🤖",
-                status: "pending",
-                menuId: 9,
-                position: 2
-              },
-              {
-                id: "wenxin_3",
-                name: "文心智能体账号3",
-                icon: "🤖",
-                status: "pending",
-                menuId: 9,
-                position: 3
-              },
-              {
-                id: "wenxin_4",
-                name: "文心智能体账号4",
-                icon: "🤖",
-                status: "pending",
-                menuId: 9,
-                position: 4
-              },
-              {
-                id: "wenxin_5",
-                name: "文心智能体账号5",
-                icon: "🤖",
-                status: "pending",
-                menuId: 9,
-                position: 5
-              },
-            ];
-          } else {
-            // 当 showMultipleAccounts 为 false 时，创建一个默认账号
-            accounts[currentUserData.sendId][currentMenuId] = [
-              {
-                id: "wenxin_default",
-                name: "文心智能体账号",
-                icon: "🤖",
-                status: "pending",
-                menuId: 9,
-                position: 1
-              }
-            ];
-          }
-        }
-
-        // 查找对应的菜单项
-        const menuItem = navItems.find((item) => item.id === currentMenuId);
-        if (!menuItem) {
-          console.log("未找到菜单，元素ID为:", currentMenuId);
-          showEmptyState();
-          return;
-        }
-
-        // 获取或创建账号列表
-        if (!accounts[currentUserData.sendId][currentMenuId] || accounts[currentUserData.sendId][currentMenuId].length === 0) {
-          accounts[currentUserData.sendId][currentMenuId] = [];
-          // 确定需要创建的账号数量：百家号(id=1)创建5个，其他平台创建1个
-          // const accountCount = currentMenuId === 1 ? 5 : 1;
-          const accountCount = ((currentMenuId === 1 || currentMenuId === 9) && showMultipleAccounts) ? 5 : 1;
-
-
-          // 创建对应数量的未绑定账号
-          for (let i = 1; i <= accountCount; i++) {
-            accounts[currentUserData.sendId][currentMenuId].push({
-              id: "pending_" + currentMenuId + "_" + i,
-              name: menuItem.name + "账号" + i,
-              icon: menuItem.icon,
-              status: "pending", // 未绑定状态
-              menuId: currentMenuId,
-              position: i,
-              isMain: (currentMenuId === 1 || currentMenuId === 9) ? (i === 1 ? 1 : 0) : 0 // 主账号标识
-
-            });
-          }
-        }
-
-        const menuAccounts = accounts[currentUserData.sendId][currentMenuId];
-        console.log("渲染账户数量为：", menuAccounts.length, "账户");
-        console.log("菜单账户为:", menuAccounts);
-
-        accountsGrid.innerHTML = "";
-        accountsGrid.style.display = "grid";
-        console.log("设置为网格显示");
-
-        if (menuAccounts.length > 0) {
-
-          // 按照 position 字段排序账号列表
-          menuAccounts.sort((a, b) => {
-              // 确保有 position 字段，默认为索引+1
-              const posA = a.position || 0;
-              const posB = b.position || 0;
-              return posA - posB;
-          });
-
-          menuAccounts.forEach((account, index) => {
-            console.log("为账户信息创建卡片", index, ":", account);
-            const card = createAccountCard(account, menuItem);
-            accountsGrid.appendChild(card);
-            console.log(
-              "账户卡片已添加，当前账户数量：",
-              accountsGrid.children.length
-            );
-          });
+      // 文心智能体受 showMultipleAccounts 控制
+      if (currentMenuId === 9) {
+        if (showMultipleAccounts) {
+          // 生成5个固定账号
+          accounts[currentUserData.sendId][currentMenuId] = [
+            {
+              id: "1",
+              name: "文心智能体账号1",
+              icon: "🤖",
+              status: "pending",
+              menuId: 1,
+              position: 1,
+            },
+            {
+              id: "1",
+              name: "文心智能体账号2",
+              icon: "🤖",
+              status: "pending",
+              menuId: 1,
+              position: 2,
+            },
+            {
+              id: "1",
+              name: "文心智能体账号3",
+              icon: "🤖",
+              status: "pending",
+              menuId: 1,
+              position: 3,
+            },
+            {
+              id: "1",
+              name: "文心智能体账号4",
+              icon: "🤖",
+              status: "pending",
+              menuId: 1,
+              position: 4,
+            },
+            {
+              id: "1",
+              name: "文心智能体账号5",
+              icon: "🤖",
+              status: "pending",
+              menuId: 1,
+              position: 5,
+            },
+          ];
         } else {
-          console.log("没有账户信息");
-          showEmptyState();
+          // 当 showMultipleAccounts 为 false 时，创建一个默认账号
+          accounts[currentUserData.sendId][currentMenuId] = [
+            {
+              id: "wenxin_default",
+              name: "文心智能体账号",
+              icon: "🤖",
+              status: "pending",
+              menuId: 1,
+              position: 1,
+            },
+          ];
         }
+      }
 
-        console.log(
-          "账号信息长度为：",
-          accountsGrid.children.length
+      // 查找对应的菜单项
+      const menuItem = navItems.find((item) => item.id === currentMenuId);
+      if (!menuItem) {
+        console.log("未找到菜单，元素ID为:", currentMenuId);
+        showEmptyState();
+        return;
+      }
+
+      // 获取或创建账号列表
+      if (
+        !accounts[currentUserData.sendId][currentMenuId] ||
+        accounts[currentUserData.sendId][currentMenuId].length === 0
+      ) {
+        accounts[currentUserData.sendId][currentMenuId] = [];
+        // 确定需要创建的账号数量：百家号(id=1)创建5个，其他平台创建1个
+        // const accountCount = currentMenuId === 1 ? 5 : 1;
+        const accountCount =
+          (currentMenuId === 1 || currentMenuId === 9) && showMultipleAccounts
+            ? 5
+            : 1;
+
+        // 创建对应数量的未绑定账号
+        for (let i = 1; i <= accountCount; i++) {
+          accounts[currentUserData.sendId][currentMenuId].push({
+            id: "pending_" + currentMenuId + "_" + i,
+            name: menuItem.name + "账号" + i,
+            icon: menuItem.icon,
+            status: "pending", // 未绑定状态
+            menuId: currentMenuId,
+            position: i,
+            isMain:
+              currentMenuId === 1 || currentMenuId === 9
+                ? i === 1
+                  ? 1
+                  : 0
+                : 0, // 主账号标识
+          });
+        }
+      }
+
+      const menuAccounts = accounts[currentUserData.sendId][currentMenuId];
+      console.log("渲染账户数量为：", menuAccounts.length, "账户");
+      console.log("菜单账户为:", menuAccounts);
+
+      accountsGrid.innerHTML = "";
+      accountsGrid.style.display = "grid";
+      console.log("设置为网格显示");
+
+      if (menuAccounts.length > 0) {
+        // 按照 position 字段排序账号列表
+        menuAccounts.sort((a, b) => {
+          // 确保有 position 字段，默认为索引+1
+          const posA = a.position || 0;
+          const posB = b.position || 0;
+          return posA - posB;
+        });
+
+        menuAccounts.forEach((account, index) => {
+          console.log("为账户信息创建卡片", index, ":", account);
+          const card = createAccountCard(account, menuItem);
+          accountsGrid.appendChild(card);
+          console.log(
+            "账户卡片已添加，当前账户数量：",
+            accountsGrid.children.length
+          );
+        });
+      } else {
+        console.log("没有账户信息");
+        showEmptyState();
+      }
+
+      console.log("账号信息长度为：", accountsGrid.children.length);
+      if (shouldUpdateStatus) {
+        setTimeout(() => {
+          debouncedUpdateAccountStatus();
+        }, 100);
+      }
+    }
+
+    function createAccountCard(account, menuItem) {
+  console.log("创建账号卡片");
+  console.log("账户数据为:", account);
+  const card = document.createElement("div");
+  card.className = "account-card";
+  
+  // 根据 position 设置 order，保证在 CSS Grid 中按位置渲染
+  const _pos = parseInt(account.position, 10);
+  if (!Number.isNaN(_pos) && _pos > 0) {
+    card.style.order = _pos;
+  }
+
+  // 应用平台对应的卡片背景
+  const platformBgClass = platformCardBgMap[account.menuId] || "card-bg-default";
+  card.classList.add(platformBgClass);
+
+  // 主账号标识
+  if (account.isMain === 1) {
+    const mainBadge = document.createElement("div");
+    mainBadge.className = "main-account-badge";
+    mainBadge.textContent = "主";
+    card.appendChild(mainBadge);
+  }
+
+  // 卡片头部
+  const headerDiv = document.createElement("div");
+  headerDiv.className = "account-card-header";
+
+  const iconDiv = document.createElement("div");
+  iconDiv.className = "account-icon";
+  iconDiv.textContent = menuItem.icon;
+
+  const infoDiv = document.createElement("div");
+  infoDiv.className = "account-info";
+
+  const platformName = document.createElement("div");
+  platformName.className = "account-platform";
+  if (account.serverData && account.serverData.userData.nikeName) {
+    console.log("账户名为:", account.serverData.userData.nikeName);
+    platformName.textContent = account.serverData.userData.nikeName;
+  } else {
+    platformName.textContent = account.name;
+  }
+
+  infoDiv.appendChild(platformName);
+  headerDiv.appendChild(iconDiv);
+  headerDiv.appendChild(infoDiv);
+
+  // 卡片主体内容容器
+  const cardContent = document.createElement("div");
+  cardContent.style.display = "flex";
+  cardContent.style.flexDirection = "column";
+  cardContent.style.flex = "1";
+
+  // 将头部添加到卡片内容中
+  cardContent.appendChild(headerDiv);
+
+  // 状态和认证时间容器 - 放在头部下面，单独一行
+  const statusContainer = document.createElement("div");
+  statusContainer.style.display = "flex";
+  statusContainer.style.alignItems = "center";;
+  statusContainer.style.marginTop = "10px";
+  statusContainer.style.justifyContent = "flex-start"; // 左对齐
+
+  // 状态标签
+  const statusDiv = document.createElement("div");
+  const statusText = document.createElement("span");
+  statusText.textContent = account.status === "pending" ? "未授权" : "已授权";
+
+  // 设置状态标签的样式
+  if (account.status === "pending") {
+    statusDiv.className = "account-status-default";
+  } else {
+    statusDiv.className = "account-status-active";
+  }
+  statusDiv.style.display = "flex";
+  statusDiv.style.justifyContent = "center";
+  statusDiv.style.alignItems = "center";
+  statusDiv.style.width = "63px";
+  statusDiv.style.height = "16px";
+  statusDiv.style.borderRadius = "3px";
+  statusDiv.style.fontWeight = "400";
+  statusDiv.style.fontSize = "11px";
+  statusDiv.style.color = "#ffffff";
+
+  if (account.status === "pending") {
+    statusDiv.style.background = "#418dff";
+  } else {
+    statusDiv.style.background = "#00c433";
+  }
+
+  statusDiv.appendChild(statusText);
+  statusContainer.appendChild(statusDiv);
+
+  // 已授权时显示认证时间
+  if (account.status === "active" && account.serverData && account.serverData.auth_time) {
+    const authTimeElement = document.createElement("div");
+    authTimeElement.textContent = `授权时间：${formatAuthTime(account.serverData.auth_time)}`;
+    authTimeElement.style.fontSize = "14px";
+    authTimeElement.style.color = "#585A73";
+    authTimeElement.style.lineHeight = "16px"; // 与状态标签保持相同行高
+    authTimeElement.style.marginLeft = "15px";
+    statusContainer.appendChild(authTimeElement);
+  }
+
+  cardContent.appendChild(statusContainer);
+
+  // 未授权时显示描述文字 - 放在状态下面
+  if (account.status === "pending") {
+    const descContainer = document.createElement("div");
+    const accountDesc = document.createElement("div");
+    accountDesc.className = "account-name";
+    accountDesc.textContent = "您的账号未授权，请点击去授权进行绑定";
+    accountDesc.style.marginTop = "8px";
+    accountDesc.style.textAlign = "left"; // 左对齐
+    descContainer.appendChild(accountDesc);
+    cardContent.appendChild(descContainer);
+  }
+
+  // 账号详细信息 - 已授权的账号详细信息放在状态下面
+  if (account.serverData && account.serverData.acc_id) {
+    console.log("开始渲染账号详细信息, serverData:", account.serverData);
+    const detailsDiv = document.createElement("div");
+    detailsDiv.className = "account-details";
+    detailsDiv.style.marginTop = "15px"; // 增加上边距，与状态分开
+
+    // 数据统计 - 检查不同的数据字段
+    const userData = account.serverData.userData || {};
+    console.log("userData 内容:", userData);
+    console.log(
+      "userData 字段检查 - sub_data:",
+      userData.sub_data,
+      "read_data:",
+      userData.read_data,
+      "fen_data:",
+      userData.fen_data
+    );
+    const hasStats =
+      userData.sub_data !== undefined ||
+      userData.read_data !== undefined ||
+      userData.fen_data !== undefined ||
+      userData.article_count !== undefined ||
+      userData.read_count !== undefined ||
+      userData.fans_count !== undefined;
+    console.log("hasStats:", hasStats);
+
+    // 如果已授权，总是显示数据统计，即使值为0
+    if (account.status === "active" || hasStats) {
+      // 文章数 - 总是显示
+      const articleCount = userData.sub_data || userData.article_count || 0;
+      const statsItem = document.createElement("div");
+      statsItem.className = "account-detail-item";
+      statsItem.innerHTML = `
+        <span class="account-detail-label">文章数</span>
+        <span class="account-detail-value">${articleCount}</span>
+      `;
+      statsItem.style.alignItems = "center";
+      detailsDiv.appendChild(statsItem);
+
+      // 阅读量 - 总是显示
+      const readCount = userData.read_data || userData.read_count || 0;
+      const readItem = document.createElement("div");
+      readItem.className = "account-detail-item";
+      readItem.innerHTML = `
+        <span class="account-detail-label">阅读量</span>
+        <span class="account-detail-value">${readCount}</span>
+      `;
+      readItem.style.alignItems = "center";
+      detailsDiv.appendChild(readItem);
+
+      // 粉丝数 - 总是显示
+      const fansCount = userData.fen_data || userData.fans_count || 0;
+      const fansItem = document.createElement("div");
+      fansItem.className = "account-detail-item";
+      fansItem.innerHTML = `
+        <span class="account-detail-label">粉丝数</span>
+        <span class="account-detail-value">${fansCount}</span>
+      `;
+      fansItem.style.alignItems = "center";
+      detailsDiv.appendChild(fansItem);
+    }
+
+    cardContent.appendChild(detailsDiv);
+  }
+
+  // 操作按钮 - 左对齐
+  const actionsDiv = document.createElement("div");
+  actionsDiv.className = "account-actions";
+
+  const enterBtn = document.createElement("button");
+  enterBtn.className = "account-btn enter-btn";
+  enterBtn.textContent = account.status === "pending" ? "去授权" : "管理";
+
+  // 应用平台对应的按钮颜色
+  const platformColorClass = platformColorMap[account.menuId] || "";
+  if (platformColorClass) {
+    enterBtn.classList.add(platformColorClass);
+  }
+
+  enterBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    console.log("点击了网格元素，进入网页", account);
+    console.log("账号的 serverData:", account.serverData);
+
+    window.currentAccountId = account.serverData
+      ? account.serverData.acc_id
+      : null;
+    window.currentAccount = account;
+
+    console.log("当前账户信息为：", window.currentAccount);
+    console.log("当前账户ID（acc_id）:", window.currentAccountId);
+
+    if (account.menuId === 9) {
+      window.parent.postMessage(
+        {
+          type: "openWenxinAuth",
+          accountId: account.serverData
+            ? account.serverData.acc_id
+            : account.id,
+          accountIndex:
+            account.position ||
+            (account.id.includes("_") ? account.id.split("_")[2] : "1"),
+          url: "https://agents.baidu.com/center",
+          acc_id: account.serverData ? account.serverData.acc_id : null,
+          position: account.position,
+        },
+        "*"
+      );
+    } else {
+      console.log("发送进入webview消息给主窗口");
+      const electronAPI =
+        window.electronAPI ||
+        (window.parent && window.parent.electronAPI);
+
+      const uniqueAccountId =
+        account.serverData && account.serverData.acc_id
+          ? `acc_${account.serverData.acc_id}_pos_${account.position}`
+          : `pending_${account.menuId}_${account.position}`;
+
+      const accountIndex =
+        account.position ||
+        (account.id.includes("_") ? account.id.split("_")[2] : "1");
+
+      if (account.status === "pending") {
+        window.parent.postMessage(
+          {
+            type: "enterWebview",
+            menuId: account.menuId,
+            accountId: uniqueAccountId,
+            accountIndex: accountIndex,
+            acc_id: account.serverData ? account.serverData.acc_id : null,
+            position: account.position,
+            hasDefaultCookies: false,
+          },
+          "*"
         );
-        if (shouldUpdateStatus) {
-          setTimeout(() => {
-            debouncedUpdateAccountStatus();
-          }, 100);
+      } else if (
+        electronAPI &&
+        typeof electronAPI.getCookies === "function"
+      ) {
+        try {
+          const defaultCookies = await electronAPI.getCookies(
+            getDomainByMenuId(account.menuId),
+            "persist:zhongshang"
+          );
+
+          window.parent.postMessage(
+            {
+              type: "enterWebview",
+              menuId: account.menuId,
+              accountId: uniqueAccountId,
+              accountIndex: accountIndex,
+              acc_id: account.serverData
+                ? account.serverData.acc_id
+                : null,
+              position: account.position,
+              hasDefaultCookies:
+                defaultCookies && defaultCookies.length > 0,
+            },
+            "*"
+          );
+        } catch (error) {
+          console.error("检查cookie时出错:", error);
+          window.parent.postMessage(
+            {
+              type: "enterWebview",
+              menuId: account.menuId,
+              accountId: uniqueAccountId,
+              accountIndex: accountIndex,
+              acc_id: account.serverData
+                ? account.serverData.acc_id
+                : null,
+              position: account.position,
+            },
+            "*"
+          );
         }
+      } else {
+        window.parent.postMessage(
+          {
+            type: "enterWebview",
+            menuId: account.menuId,
+            accountId: uniqueAccountId,
+            accountIndex: accountIndex,
+            acc_id: account.serverData ? account.serverData.acc_id : null,
+            position: account.position,
+          },
+          "*"
+        );
       }
+      console.log(
+        "消息已发送，accountId:",
+        uniqueAccountId,
+        "position:",
+        account.position
+      );
+    }
+  });
 
-      function createAccountCard(account, menuItem) {
-        console.log("创建账号卡片")
-        console.log("账户数据为:", account);
-        const card = document.createElement("div");
-        card.className = "account-card";
-        // 根据 position 设置 order，保证在 CSS Grid 中按位置渲染
-        const _pos = parseInt(account.position, 10);
-        if (!Number.isNaN(_pos) && _pos > 0) {
-           card.style.order = _pos;
-        }
+  // 只有已授权时才添加解绑按钮
+  if (account.status === "active") {
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "account-btn delete-btn";
+    deleteBtn.textContent = "解绑";
+    
+    // 应用平台对应的按钮颜色（解绑按钮也使用相同颜色）
+    if (platformColorClass) {
+      deleteBtn.classList.add(platformColorClass);
+    }
 
-        // 如果是主账号，添加特殊样式
-        // if (account.isMain == 1) {
-        //   card.classList.add("main-account-card");
-        // }
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteAccount(account.id);
+    });
 
-        console.log("正在为以下账户创建数据:", account.serverData);
-        // 卡片头部
-        const headerDiv = document.createElement("div");
-        headerDiv.className = "account-card-header";
+    actionsDiv.appendChild(enterBtn);
+    actionsDiv.appendChild(deleteBtn);
+  } else {
+    // 未授权时只显示去授权按钮
+    actionsDiv.appendChild(enterBtn);
+  }
 
-        const iconDiv = document.createElement("div");
-        iconDiv.className = "account-icon";
-        iconDiv.textContent = menuItem.icon;
+  cardContent.appendChild(actionsDiv);
 
-        const infoDiv = document.createElement("div");
-        infoDiv.className = "account-info";
+  // 将卡片内容添加到卡片中
+  card.appendChild(cardContent);
 
-        const platformName = document.createElement("div");
-        platformName.className = "account-platform";
-        // platformName.textContent = account.name;
-        if (account.serverData && account.serverData.userData.nikeName) {
-          console.log("账户名为:", account.serverData.userData.nikeName);
-          platformName.textContent = account.serverData.userData.nikeName;
-        } else {
-          platformName.textContent = account.name;
-        }
+  return card;
+}
 
-        const accountDesc = document.createElement("div");
-        accountDesc.className = "account-name";
-        // accountDesc.textContent = "账号绑定信息";
-        accountDesc.textContent = account.status === "pending" ? "未授权" : "已授权";
+  function getDomainByMenuId(menuId) {
+      const domainMap = {
+        1: "https://baijiahao.baidu.com",
+        2: "https://mp.sohu.com",
+        4: "http://zs.open.chuangmaedu.com",
+        6: "https://om.qq.com",
+        8: "https://mp.163.com/login.html#",
+      };
+      return domainMap[menuId] || "";
+    }
 
-
-        infoDiv.appendChild(platformName);
-        infoDiv.appendChild(accountDesc);
-        headerDiv.appendChild(iconDiv);
-        headerDiv.appendChild(infoDiv);
-        
-        // 主账号标识
-        if (account.isMain === 1) {
-          const mainBadge = document.createElement("div");
-          mainBadge.className = "main-account-badge";
-          mainBadge.textContent = "主账号";
-          card.appendChild(mainBadge);
-        }
-
-
-        // 状态
-        const statusDiv = document.createElement("div");
-        statusDiv.className = "account-status";
-        const statusDot = document.createElement("div");
-        statusDot.className = "status-dot";
-        const statusText = document.createElement("span");
-        // statusText.textContent = "已激活";
-        // 根据实际状态显示文本
-        statusText.textContent = account.status === "pending" ? "待授权" : "已激活";
-        // 根据状态改变颜色
-        // statusText.style.color = account.status === "pending" ? "#999" : "#28a745";
-        // 根据状态设置颜色
-        if (account.status === "pending") {
-          statusText.style.color = "#999";
-          statusDot.style.background = "#999";
-        } else {
-          statusText.style.color = "#28a745";
-          statusDot.style.background = "#28a745";
-        }
-        statusDiv.appendChild(statusDot);
-        statusDiv.appendChild(statusText);
-        
-        // 账号详细信息
-        if (account.serverData && account.serverData.acc_id) {
-          console.log("开始渲染账号详细信息, serverData:", account.serverData);
-          const detailsDiv = document.createElement("div");
-          detailsDiv.className = "account-details";
-          
-          // 认证时间
-          if (account.serverData.auth_time) {
-            const expireItem = document.createElement("div");
-            expireItem.className = "account-detail-item";
-            expireItem.innerHTML = `
-              <span class="account-detail-label">认证时间:</span>
-              <span class="account-detail-value">${account.serverData.auth_time}</span>
-            `;
-            detailsDiv.appendChild(expireItem);
-          }
-          
-          // 数据统计 - 检查不同的数据字段
-          const userData = account.serverData.userData || {};
-          console.log("userData 内容:", userData);
-          console.log("userData 字段检查 - sub_data:", userData.sub_data, "read_data:", userData.read_data, "fen_data:", userData.fen_data);
-          const hasStats = userData.sub_data || userData.read_data || userData.fen_data || 
-                          userData.article_count || userData.read_count || userData.fans_count;
-          console.log("hasStats:", hasStats);
-          
-          if (hasStats) {
-            // 文章数
-            const articleCount = userData.sub_data || userData.article_count || 0;
-            if (articleCount > 0) {
-              const statsItem = document.createElement("div");
-              statsItem.className = "account-detail-item";
-              statsItem.innerHTML = `
-                <span class="account-detail-label">文章数:</span>
-                <span class="account-detail-value">${articleCount}</span>
-              `;
-              detailsDiv.appendChild(statsItem);
-            }
-            
-            // 阅读量
-            const readCount = userData.read_data || userData.read_count || 0;
-            if (readCount > 0) {
-              const readItem = document.createElement("div");
-              readItem.className = "account-detail-item";
-              readItem.innerHTML = `
-                <span class="account-detail-label">阅读量:</span>
-                <span class="account-detail-value">${readCount}</span>
-              `;
-              detailsDiv.appendChild(readItem);
-            }
-            
-            // 粉丝数
-            const fansCount = userData.fen_data || userData.fans_count || 0;
-            if (fansCount > 0) {
-              const fansItem = document.createElement("div");
-              fansItem.className = "account-detail-item";
-              fansItem.innerHTML = `
-                <span class="account-detail-label">粉丝数:</span>
-                <span class="account-detail-value">${fansCount}</span>
-              `;
-              detailsDiv.appendChild(fansItem);
-            }
-          }
-          
-          card.appendChild(detailsDiv);
-        }
-
-
-        // 操作按钮
-        const actionsDiv = document.createElement("div");
-        actionsDiv.className = "account-actions";
-
-        const enterBtn = document.createElement("button");
-        enterBtn.className = "account-btn enter-btn";
-        // 根据账号状态显示不同文本
-        enterBtn.textContent = account.status === "pending" ? "去授权" : "进入";
-        
-        enterBtn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          console.log("点击了网格元素，进入网页", account);
-          console.log("账号的 serverData:", account.serverData);
-          
-          // 设置当前选中的账号信息
-          window.currentAccountId = account.serverData ? account.serverData.acc_id : null;
-          window.currentAccount = account;
-
-          console.log("当前账户信息为：", window.currentAccount);
-          console.log("当前账户ID（acc_id）:", window.currentAccountId);
-
-          // 文心智能体账号特殊处理
-          if (account.menuId === 9) {
-            // 发送消息给主窗口，要求打开新窗口
-            window.parent.postMessage(
-              {
-                type: "openWenxinAuth",
-                accountId: account.serverData ? account.serverData.acc_id : account.id,
-                accountIndex: account.position || (account.id.includes('_') ? account.id.split('_')[2] : '1'),
-                url: "https://agents.baidu.com/center",
-                acc_id: account.serverData ? account.serverData.acc_id : null,
-                position: account.position
-              },
-              "*"
-            );
-          } else {
-            console.log("发送进入webview消息给主窗口");
-            // 安全地访问 electronAPI
-            const electronAPI = window.electronAPI || (window.parent && window.parent.electronAPI);
-            
-            // 生成唯一的 accountId：优先使用 acc_id，否则使用 position 组合
-            const uniqueAccountId = account.serverData && account.serverData.acc_id 
-              ? `acc_${account.serverData.acc_id}_pos_${account.position}` 
-              : `pending_${account.menuId}_${account.position}`;
-            
-            // 获取 accountIndex：直接使用 position
-            const accountIndex = account.position || (account.id.includes('_') ? account.id.split('_')[2] : '1');
-            
-            // 对于未授权账号，不检查默认分区cookie，确保使用独立分区
-            if (account.status === "pending") {
-              // 未授权账号直接发送消息，不检查默认分区cookie
-              window.parent.postMessage(
-                {
-                  type: "enterWebview",
-                  menuId: account.menuId,
-                  accountId: uniqueAccountId,
-                  accountIndex: accountIndex,
-                  acc_id: account.serverData ? account.serverData.acc_id : null,
-                  position: account.position,
-                  hasDefaultCookies: false // 明确设置为false，确保不使用默认分区cookie
-                },
-                "*"
-              );
-            } else if (electronAPI && typeof electronAPI.getCookies === 'function') {
-              // 已授权账号可以检查默认分区cookie（兼容性处理）
-              try {
-                const defaultCookies = await electronAPI.getCookies(getDomainByMenuId(account.menuId), "persist:zhongshang");
-                
-                window.parent.postMessage(
-                  {
-                    type: "enterWebview",
-                    menuId: account.menuId,
-                    accountId: uniqueAccountId,
-                    accountIndex: accountIndex,
-                    acc_id: account.serverData ? account.serverData.acc_id : null,
-                    position: account.position,
-                    hasDefaultCookies: defaultCookies && defaultCookies.length > 0
-                  },
-                  "*"
-                );
-              } catch (error) {
-                console.error("检查cookie时出错:", error);
-                window.parent.postMessage(
-                  {
-                    type: "enterWebview",
-                    menuId: account.menuId,
-                    accountId: uniqueAccountId,
-                    accountIndex: accountIndex,
-                    acc_id: account.serverData ? account.serverData.acc_id : null,
-                    position: account.position
-                  },
-                  "*"
-                );
-              }
-            } else {
-              window.parent.postMessage(
-                {
-                  type: "enterWebview",
-                  menuId: account.menuId,
-                  accountId: uniqueAccountId,
-                  accountIndex: accountIndex,
-                  acc_id: account.serverData ? account.serverData.acc_id : null,
-                  position: account.position
-                },
-                "*"
-              );
-            }
-            console.log("消息已发送，accountId:", uniqueAccountId, "position:", account.position);
-          }
-        });
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "account-btn delete-btn";
-        deleteBtn.textContent = "删除";
-        deleteBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          deleteAccount(account.id);
-        });
-
-        actionsDiv.appendChild(enterBtn);
-        actionsDiv.appendChild(deleteBtn);
-
-        card.appendChild(headerDiv);
-        card.appendChild(statusDiv);
-        card.appendChild(actionsDiv);
-
-        return card;
-      }
-
-
-      function getDomainByMenuId(menuId) {
-        const domainMap = {
-          1: "https://baijiahao.baidu.com",
-          2: "https://mp.sohu.com",
-          3: "https://mp.toutiao.com",
-          4: "http://zs.open.chuangmaedu.com",
-          5: "https://mp.sina.com.cn",
-          6: "https://om.qq.com",
-          8: "https://mp.163.com"
-        };
-        return domainMap[menuId] || "";
-      }
-
-      function showEmptyState() {
-        const accountsGrid = document.getElementById("accountsGrid");
-        console.log("调用了showEmptyState函数");
-        accountsGrid.innerHTML = `
+    function showEmptyState() {
+      const accountsGrid = document.getElementById("accountsGrid");
+      console.log("调用了showEmptyState函数");
+      accountsGrid.innerHTML = `
                 <div style="grid-column: 1/-1;">
                     <div class="empty-state">
                         <div class="empty-icon">📭</div>
@@ -1190,117 +1261,139 @@
                     </div>
                 </div>
             `;
+    }
+
+    function deleteAccount(accountId) {
+      // 获取账号的真实ID（从serverData中）
+      let realAccountId = null;
+      let foundAccount = null;
+
+      // 在当前用户的账号中查找要删除的账号
+      if (
+        accounts[currentUserData.sendId] &&
+        accounts[currentUserData.sendId][currentMenuId]
+      ) {
+        for (const account of accounts[currentUserData.sendId][
+          currentMenuId
+        ]) {
+          if (account.id === accountId) {
+            foundAccount = account;
+            // 如果账号有serverData且包含acc_id，则使用acc_id作为真实ID
+            if (account.serverData && account.serverData.acc_id) {
+              realAccountId = account.serverData.acc_id;
+            }
+            break;
+          }
+        }
       }
 
-      function deleteAccount(accountId) {
-        // 获取账号的真实ID（从serverData中）
-        let realAccountId = null;
-        let foundAccount = null;
-        
-        // 在当前用户的账号中查找要删除的账号
-        if (accounts[currentUserData.sendId] && accounts[currentUserData.sendId][currentMenuId]) {
-          for (const account of accounts[currentUserData.sendId][currentMenuId]) {
-            if (account.id === accountId) {
-              foundAccount = account;
-              // 如果账号有serverData且包含acc_id，则使用acc_id作为真实ID
-              if (account.serverData && account.serverData.acc_id) {
-                realAccountId = account.serverData.acc_id;
-              }
-              break;
-            }
+      // 如果没有找到账号，直接返回
+      if (!foundAccount) {
+        console.error("未找到要删除的账号:", accountId);
+        return;
+      }
+
+      // 如果是临时账号（没有真实ID），直接软删除（重置状态）
+      if (!realAccountId) {
+        if (confirm("确定要删除此账号吗？")) {
+          // 软删除：重置账号状态
+          foundAccount.status = "pending";
+          delete foundAccount.serverData;
+
+          // 如果账号名称是临时名称，恢复为默认名称
+          const menuItem = navItems.find((item) => item.id === currentMenuId);
+          if (menuItem && foundAccount.id.startsWith("temp_")) {
+            foundAccount.name =
+              menuItem.name + "账号" + foundAccount.position;
           }
+
+          renderAccounts();
+          console.log("临时账号已重置为未授权状态");
         }
-        
-        // 如果没有找到账号，直接返回
-        if (!foundAccount) {
-          console.error('未找到要删除的账号:', accountId);
+        return;
+      }
+
+      // 对于已有真实ID的账号，调用后端解绑接口
+      if (confirm("确定要解绑此账号吗？")) {
+        // 安全地访问 electronAPI（兼容 iframe 环境）
+        const electronAPI =
+          window.electronAPI || (window.parent && window.parent.electronAPI);
+
+        if (!electronAPI) {
+          console.error("无法访问 electronAPI，解绑功能不可用");
+          alert("解绑功能暂时不可用，请刷新页面后重试");
           return;
         }
-        
-        // 如果是临时账号（没有真实ID），直接软删除（重置状态）
-        if (!realAccountId) {
-          if (confirm("确定要删除此账号吗？")) {
-            // 软删除：重置账号状态
-            foundAccount.status = "pending";
-            delete foundAccount.serverData;
-            
-            // 如果账号名称是临时名称，恢复为默认名称
-            const menuItem = navItems.find((item) => item.id === currentMenuId);
-            if (menuItem && foundAccount.id.startsWith("temp_")) {
-              foundAccount.name = menuItem.name + "账号" + foundAccount.position;
-            }
-            
-            renderAccounts();
-            console.log('临时账号已重置为未授权状态');
-          }
-          return;
-        }
-        
-        // 对于已有真实ID的账号，调用后端解绑接口
-        if (confirm("确定要解绑此账号吗？")) {
-          // 安全地访问 electronAPI（兼容 iframe 环境）
-          const electronAPI = window.electronAPI || (window.parent && window.parent.electronAPI);
-          
-          if (!electronAPI) {
-            console.error('无法访问 electronAPI，解绑功能不可用');
-            alert('解绑功能暂时不可用，请刷新页面后重试');
-            return;
-          }
-          
-          // 显示加载状态
-          const accountsGrid = document.getElementById("accountsGrid");
-          const loadingElement = document.createElement("div");
-          loadingElement.style.cssText = "grid-column: 1/-1; padding: 20px; text-align: center; background: rgba(255,255,255,0.9); border-radius: 8px;";
-          loadingElement.innerHTML = "<p>正在解绑账号...</p>";
-          accountsGrid.appendChild(loadingElement);
-          
-          // 调用主进程进行解绑
-          electronAPI.unbindAccount({
+
+        // 显示加载状态
+        const accountsGrid = document.getElementById("accountsGrid");
+        const loadingElement = document.createElement("div");
+        loadingElement.style.cssText =
+          "grid-column: 1/-1; padding: 20px; text-align: center; background: rgba(255,255,255,0.9); border-radius: 8px;";
+        loadingElement.innerHTML = "<p>正在解绑账号...</p>";
+        accountsGrid.appendChild(loadingElement);
+
+        // 调用主进程进行解绑
+        electronAPI
+          .unbindAccount({
             accountId: realAccountId,
-            userId: currentUserData.sendId
-          }).then((result) => {
+            userId: currentUserData.sendId,
+          })
+          .then((result) => {
             // 移除加载状态
             if (loadingElement.parentNode) {
               loadingElement.parentNode.removeChild(loadingElement);
             }
-            
+
             if (result.success) {
               // 解绑成功，软删除：重置账号状态，不清除卡片
               if (foundAccount) {
                 foundAccount.status = "pending";
                 delete foundAccount.serverData;
-                
+
                 // 恢复账号名称为默认名称
-                const menuItem = navItems.find((item) => item.id === currentMenuId);
+                const menuItem = navItems.find(
+                  (item) => item.id === currentMenuId
+                );
                 if (menuItem) {
-                  foundAccount.name = menuItem.name + "账号" + foundAccount.position;
+                  foundAccount.name =
+                    menuItem.name + "账号" + foundAccount.position;
                 }
                 // 生成唯一的accountId用于清除cookie
-                const uniqueAccountId = realAccountId 
-                  ? `acc_${realAccountId}_pos_${foundAccount.position}` 
+                const uniqueAccountId = realAccountId
+                  ? `acc_${realAccountId}_pos_${foundAccount.position}`
                   : `pending_${currentMenuId}_${foundAccount.position}`;
-                
+
                 // 清除该账号的cookie
-                if (electronAPI && typeof electronAPI.clearAccountCookies === 'function') {
-                  electronAPI.clearAccountCookies({
-                    accountId: uniqueAccountId,
-                    menuId: currentMenuId
-                  }).then(clearResult => {
-                    if (clearResult.success) {
-                      console.log('账号cookie清除成功');
-                    } else {
-                      console.error('账号cookie清除失败:', clearResult.message);
-                    }
-                  });
+                if (
+                  electronAPI &&
+                  typeof electronAPI.clearAccountCookies === "function"
+                ) {
+                  electronAPI
+                    .clearAccountCookies({
+                      accountId: uniqueAccountId,
+                      menuId: currentMenuId,
+                    })
+                    .then((clearResult) => {
+                      if (clearResult.success) {
+                        console.log("账号cookie清除成功");
+                      } else {
+                        console.error(
+                          "账号cookie清除失败:",
+                          clearResult.message
+                        );
+                      }
+                    });
                 }
               }
-              
+
               // 重新渲染，显示更新后的状态
               renderAccounts();
-              
+
               // 显示成功消息
               const messageBox = document.createElement("div");
-              messageBox.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;";
+              messageBox.style.cssText =
+                "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;";
               messageBox.innerHTML = `
                 <h3 style="margin: 0 0 10px 0; color: #28a745;">✓ 成功</h3>
                 <p style="margin: 0 0 15px 0;">账号解绑成功</p>
@@ -1316,10 +1409,12 @@
             } else {
               // 显示错误消息
               const messageBox = document.createElement("div");
-              messageBox.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;";
+              messageBox.style.cssText =
+                "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;";
               messageBox.innerHTML = `
                 <h3 style="margin: 0 0 10px 0; color: #e74c3c;">⚠️ 错误</h3>
-                <p style="margin: 0 0 15px 0;">${result.message || '解绑失败'}</p>
+                <p style="margin: 0 0 15px 0;">${result.message || "解绑失败"
+                }</p>
                 <button onclick="this.parentElement.remove()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">确定</button>
               `;
               document.body.appendChild(messageBox);
@@ -1330,15 +1425,17 @@
                 }
               }, 3000);
             }
-          }).catch((error) => {
+          })
+          .catch((error) => {
             // 移除加载状态
             if (loadingElement.parentNode) {
               loadingElement.parentNode.removeChild(loadingElement);
             }
-            
+
             // 显示错误消息
             const messageBox = document.createElement("div");
-            messageBox.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;";
+            messageBox.style.cssText =
+              "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;";
             messageBox.innerHTML = `
               <h3 style="margin: 0 0 10px 0; color: #e74c3c;">⚠️ 错误</h3>
               <p style="margin: 0 0 15px 0;">解绑账号时发生错误</p>
@@ -1351,86 +1448,90 @@
                 messageBox.remove();
               }
             }, 3000);
-            
-            console.error('解绑账号时发生错误:', error);
+
+            console.error("解绑账号时发生错误:", error);
           });
-        }
+      }
+    }
+
+    // function addAccount() {
+    //     if (currentMenuId === null || currentMenuId === undefined) {
+    //         alert('请先从左侧菜单选择平台');
+    //         return;
+    //     }
+
+    //     if (!accounts[currentMenuId]) {
+    //         accounts[currentMenuId] = [];
+    //     }
+
+    //     const menuItem = navItems.find(item => item.id === currentMenuId);
+    //     if (!menuItem) return;
+
+    //     const newAccount = {
+    //         id: 'account_' + Date.now(),
+    //         name: menuItem.name + '账号' + (accounts[currentMenuId].length + 1),
+    //         icon: menuItem.icon,
+    //         status: 'active',
+    //         menuId: currentMenuId
+    //     };
+
+    //     accounts[currentMenuId].push(newAccount);
+    //     renderAccounts();
+
+    //     // 通知主窗口需要进行账号绑定
+    //     window.parent.postMessage({
+    //         type: 'addNewAccount',
+    //         menuId: currentMenuId,
+    //         accountId: newAccount.id
+    //     }, '*');
+    // }
+
+    function addAccount() {
+      if (
+        accounts[currentUserData.sendId][currentMenuId] === null ||
+        accounts[currentUserData.sendId][currentMenuId] === undefined
+      ) {
+        alert("请先从左侧菜单选择平台");
+        return;
       }
 
-      // function addAccount() {
-      //     if (currentMenuId === null || currentMenuId === undefined) {
-      //         alert('请先从左侧菜单选择平台');
-      //         return;
-      //     }
+      // 直接发送消息给父窗口，进入对应的webview页面进行账号绑定
+      window.parent.postMessage(
+        {
+          type: "enterWebview",
+          menuId: accounts[currentUserData.sendId][currentMenuId].menuId,
+        },
+        "*"
+      );
 
-      //     if (!accounts[currentMenuId]) {
-      //         accounts[currentMenuId] = [];
-      //     }
+      const menuItem = navItems.find((item) => item.id === currentMenuId);
+      if (!menuItem) return;
 
-      //     const menuItem = navItems.find(item => item.id === currentMenuId);
-      //     if (!menuItem) return;
+      const newAccount = {
+        id: "temp_" + Date.now(),
+        name: menuItem.name + "新账号",
+        icon: menuItem.icon,
+        status: "pending",
+        menuId: currentMenuId,
+        position:
+          (accounts[currentUserData.sendId][currentMenuId] || []).length + 1,
+        isMain: 0,
+      };
 
-      //     const newAccount = {
-      //         id: 'account_' + Date.now(),
-      //         name: menuItem.name + '账号' + (accounts[currentMenuId].length + 1),
-      //         icon: menuItem.icon,
-      //         status: 'active',
-      //         menuId: currentMenuId
-      //     };
+      // 可以暂时存储这个账号信息，等待绑定完成后再正式添加
+      // 这里我们先注释掉之前的逻辑，直接跳转
 
-      //     accounts[currentMenuId].push(newAccount);
-      //     renderAccounts();
-
-      //     // 通知主窗口需要进行账号绑定
-      //     window.parent.postMessage({
-      //         type: 'addNewAccount',
-      //         menuId: currentMenuId,
-      //         accountId: newAccount.id
-      //     }, '*');
-      // }
-
-      function addAccount() {
-        if (accounts[currentUserData.sendId][currentMenuId] === null || accounts[currentUserData.sendId][currentMenuId] === undefined) {
-          alert("请先从左侧菜单选择平台");
-          return;
-        }
-
-        // 直接发送消息给父窗口，进入对应的webview页面进行账号绑定
-        window.parent.postMessage(
-          {
-            type: "enterWebview",
-            menuId: accounts[currentUserData.sendId][currentMenuId].menuId,
-          },
-          "*"
-        );
-
-        const menuItem = navItems.find((item) => item.id === currentMenuId);
-        if (!menuItem) return;
-
-        const newAccount = {
-          id: "temp_" + Date.now(),
-          name: menuItem.name + "新账号",
-          icon: menuItem.icon,
-          status: "pending",
-          menuId: currentMenuId,
-          position: (accounts[currentUserData.sendId][currentMenuId] || []).length + 1,
-          isMain: 0
-        };
-
-        // 可以暂时存储这个账号信息，等待绑定完成后再正式添加
-        // 这里我们先注释掉之前的逻辑，直接跳转
-
-
-        if (!accounts[currentUserData.sendId]) {
-          accounts[currentUserData.sendId] = {};
-        }
-        if (!accounts[currentUserData.sendId][currentMenuId]) {
-          accounts[currentUserData.sendId][currentMenuId] = [];
-        }
-        accounts[currentUserData.sendId][currentMenuId].push(newAccount);
-        renderAccounts();
+      if (!accounts[currentUserData.sendId]) {
+        accounts[currentUserData.sendId] = {};
       }
-      showEmptyState();
-    </script>
-  </body>
+      if (!accounts[currentUserData.sendId][currentMenuId]) {
+        accounts[currentUserData.sendId][currentMenuId] = [];
+      }
+      accounts[currentUserData.sendId][currentMenuId].push(newAccount);
+      renderAccounts();
+    }
+    showEmptyState();
+  </script>
+</body>
+
 </html>

@@ -612,7 +612,7 @@
 			{ id: 8, name: "网易", url: "https://mp.163.com/login.html#/", icon: "🌐", flag: false, show: false },
 			// "https://mp.163.com/oauth2/authorize?client_id=fOfFmkq4CF&response_type=code&redirect_uri=http://47.93.80.212:8000/wangyi/callback/?send_id="
 		];
-
+		
 		let token = '';
 		let sendId = '';
 		let currentNavId = 0;
@@ -1269,7 +1269,7 @@
 			const headers = {
 				'Content-Type': 'application/json',
 			};
-			fetch(checkUrl + '/desktop/check/sign/', {
+			fetch(mainUrl + '/desktop/check/sign/', {
 				method: 'POST',
 				headers: headers,
 				body: JSON.stringify(data)
