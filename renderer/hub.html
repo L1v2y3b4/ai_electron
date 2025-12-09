@@ -443,15 +443,15 @@
     let showMultipleAccounts = true; // 是否显示多个账号，主要用于百家号和文心智能体
     let currentUserData = null; //作为用户数据隔离
 
-      // 平台颜色映射表 - 严格按要求配置
-      const platformColorMap = {
-        1: "btn-color-baijia", // 百家号 - #418DFF （固定）
-        2: "btn-color-sohu", // 搜狐 - #FB843F （固定）
-        6: "btn-color-tencent", // 腾讯 - #FBC13F（固定）
-        8: "btn-color-163", // 网易 - #FB3B3B（固定）
-        4: "btn-color-wechat", // 微信公众号 - #6FD169（固定）
-        9: 'btn-color-wenxin',// 文心智能体 - #3c43ff （固定）
-      };
+    // 平台颜色映射表 - 严格按要求配置
+    const platformColorMap = {
+      1: "btn-color-baijia", // 百家号 - #418DFF （固定）
+      2: "btn-color-sohu", // 搜狐 - #FB843F （固定）
+      6: "btn-color-tencent", // 腾讯 - #FBC13F（固定）
+      8: "btn-color-163", // 网易 - #FB3B3B（固定）
+      4: "btn-color-wechat", // 微信公众号 - #6FD169（固定）
+      9: 'btn-color-wenxin',// 文心智能体 - #3c43ff （固定）
+    };
 
       // 平台卡片背景映射表
       const platformCardBgMap = {
@@ -510,7 +510,11 @@
         const menuIdToTypeMap = {
           1: 1,
           2: 2,
+          3: 3,
           4: 4,
+          5: 5,
+          6: 6,
+          7: 7,
           8: 8,
           9: 9,
         };
@@ -754,43 +758,43 @@
           // 生成5个固定账号
           accounts[currentUserData.sendId][currentMenuId] = [
             {
-              id: "1",
+              id: "wenxin_1",
               name: "文心智能体账号1",
               icon: "🤖",
               status: "pending",
-              menuId: 1,
+              menuId: 9,
               position: 1,
             },
             {
-              id: "1",
+              id: "wenxin_2",
               name: "文心智能体账号2",
               icon: "🤖",
               status: "pending",
-              menuId: 1,
+              menuId: 9,
               position: 2,
             },
             {
-              id: "1",
+              id: "wenxin_3",
               name: "文心智能体账号3",
               icon: "🤖",
               status: "pending",
-              menuId: 1,
+              menuId: 9,
               position: 3,
             },
             {
-              id: "1",
+              id: "wenxin_4",
               name: "文心智能体账号4",
               icon: "🤖",
               status: "pending",
-              menuId: 1,
+              menuId: 9,
               position: 4,
             },
             {
-              id: "1",
+              id: "wenxin_5",
               name: "文心智能体账号5",
               icon: "🤖",
               status: "pending",
-              menuId: 1,
+              menuId: 9,
               position: 5,
             },
           ];
@@ -802,7 +806,7 @@
               name: "文心智能体账号",
               icon: "🤖",
               status: "pending",
-              menuId: 1,
+              menuId: 9,
               position: 1,
             },
           ];
@@ -1242,9 +1246,11 @@
       const domainMap = {
         1: "https://baijiahao.baidu.com",
         2: "https://mp.sohu.com",
+        3: "https://mp.toutiao.com",
         4: "http://zs.open.chuangmaedu.com",
+        5: "https://mp.sina.com.cn",
         6: "https://om.qq.com",
-        8: "https://mp.163.com/login.html#",
+        8: "https://mp.163.com",
       };
       return domainMap[menuId] || "";
     }
