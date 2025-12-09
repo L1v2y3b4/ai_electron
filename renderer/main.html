@@ -1345,7 +1345,7 @@
                 
                 // 切换到账号管理视图
                 currentViewMode = "hub";
-                currentNavId = 9; // 为文心智能体分配一个新的ID
+                currentNavId = 1; // 与百家号使用相同的menuId
                 const hubFrame = document.getElementById("hubFrame");
                 const webview = document.getElementById("browserView");
                 
@@ -1353,11 +1353,13 @@
                 webview.classList.remove("active");
                 
                 // 通知hub页面切换到文心智能体账号管理
+                // 传参与百家号相同（menuId: 1），但添加actualType标识实际类型为9
                 hubFrame.contentWindow.postMessage({
                   type: "selectMenu",
-                  menuId: 9,
+                  menuId: 1, // 与百家号传参相同
+                  actualType: 9, // 实际类型标识，用于接口调用
                   navItems: [...navItems, {
-                    id: 9,
+                    id: 1,
                     name: "文心智能体",
                     url: "https://agents.baidu.com/center",
                     icon: "🤖",

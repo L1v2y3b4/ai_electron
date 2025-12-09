@@ -438,6 +438,7 @@
     }
 
     let currentMenuId = null;
+    let actualType = null; // 实际类型，用于接口调用（百家号和文心智能体都传menuId:1，但actualType不同）
     let navItems = [];
     let accounts = {};
     let showMultipleAccounts = true; // 是否显示多个账号，主要用于百家号和文心智能体
@@ -467,6 +468,8 @@
       console.log("接收到消息", event.data);
       if (event.data.type === "selectMenu") {
         currentMenuId = event.data.menuId;
+        // 保存实际类型，如果有actualType则使用actualType，否则使用menuId
+        actualType = event.data.actualType !== undefined ? event.data.actualType : event.data.menuId;
         navItems = event.data.navItems || [];
         if (event.data.userData) {
           currentUserData = event.data.userData;
@@ -478,7 +481,7 @@
           // 检查用户是否为蓝V套餐用户
           //showMultipleAccounts =  checkBlueVPackageStatus(currentUserData.sendId);
         }
-        console.log("选择菜单", currentMenuId, "导航项数量", navItems.length);
+        console.log("选择菜单", currentMenuId, "实际类型", actualType, "导航项数量", navItems.length);
         renderAccounts();
         setTimeout(debouncedUpdateAccountStatus, 100);
       } else if (event.data.type === "accountAuthorized") {
@@ -506,25 +509,18 @@
           return;
         }
 
-        // 菜单ID到平台类型的映射
-        const menuIdToTypeMap = {
-          1: 1,
-          2: 2,
-          3: 3,
-          4: 4,
-          5: 5,
-          6: 6,
-          7: 7,
-          8: 8,
-          9: 9,
-        };
-
-        const platformType = menuIdToTypeMap[currentMenuId] || currentMenuId;
+        // 使用actualType作为接口调用的type参数
+        // 如果actualType存在（如文心智能体），使用actualType；否则使用menuId
+        const platformType = actualType !== null ? actualType : currentMenuId;
 
         console.log(
           "正在调用 getAccountStatus 当前 userId:",
           currentUserData.sendId,
-          "type:",
+          "menuId:",
+          currentMenuId,
+          "actualType:",
+          actualType,
+          "调用接口type:",
           platformType
         );
         const result = await electronAPI.getAccountStatus({
@@ -559,7 +555,8 @@
                 let serverAccount = null;
 
                 // 对于百家号和文心智能体，需要考虑is_main字段
-                if (currentMenuId === 1 || currentMenuId === 9) {
+                // 判断是否为百家号或文心智能体：menuId为1且actualType为9表示文心智能体，menuId为1且actualType不为9表示百家号
+                if (currentMenuId === 1) {
                   // 统一处理 is_main：可能是 1/0 或 true/false
                   const normalizeIsMain = (val) => {
                     if (val === true || val === 1) return 1;
@@ -753,7 +750,8 @@
       
 
       // 文心智能体受 showMultipleAccounts 控制
-      if (currentMenuId === 9) {
+      // 判断是否为文心智能体：actualType为9表示文心智能体
+      if (actualType === 9) {
         if (showMultipleAccounts) {
           // 生成5个固定账号
           accounts[currentUserData.sendId][currentMenuId] = [
@@ -763,6 +761,7 @@
               icon: "🤖",
               status: "pending",
               menuId: 1,
+              actualType: 9, // 保存实际类型
               position: 1,
             },
             {
@@ -771,6 +770,7 @@
               icon: "🤖",
               status: "pending",
               menuId: 1,
+              actualType: 9, // 保存实际类型
               position: 2,
             },
             {
@@ -779,6 +779,7 @@
               icon: "🤖",
               status: "pending",
               menuId: 1,
+              actualType: 9, // 保存实际类型
               position: 3,
             },
             {
@@ -787,6 +788,7 @@
               icon: "🤖",
               status: "pending",
               menuId: 1,
+              actualType: 9, // 保存实际类型
               position: 4,
             },
             {
@@ -795,6 +797,7 @@
               icon: "🤖",
               status: "pending",
               menuId: 1,
+              actualType: 9, // 保存实际类型
               position: 5,
             },
           ];
@@ -807,6 +810,7 @@
               icon: "🤖",
               status: "pending",
               menuId: 1,
+              actualType: 9, // 保存实际类型
               position: 1,
             },
           ];
@@ -827,10 +831,10 @@
         accounts[currentUserData.sendId][currentMenuId].length === 0
       ) {
         accounts[currentUserData.sendId][currentMenuId] = [];
-        // 确定需要创建的账号数量：百家号(id=1)创建5个，其他平台创建1个
-        // const accountCount = currentMenuId === 1 ? 5 : 1;
+        // 确定需要创建的账号数量：百家号和文心智能体创建5个，其他平台创建1个
+        // 判断是否为百家号或文心智能体：menuId为1表示百家号或文心智能体
         const accountCount =
-          (currentMenuId === 1 || currentMenuId === 9) && showMultipleAccounts
+          currentMenuId === 1 && showMultipleAccounts
             ? 5
             : 1;
 
@@ -842,13 +846,14 @@
             icon: menuItem.icon,
             status: "pending", // 未绑定状态
             menuId: currentMenuId,
+            actualType: actualType, // 保存实际类型，用于区分百家号和文心智能体
             position: i,
             isMain:
-              currentMenuId === 1 || currentMenuId === 9
+              currentMenuId === 1
                 ? i === 1
                   ? 1
                   : 0
-                : 0, // 主账号标识
+                : 0, // 主账号标识（百家号和文心智能体都使用menuId=1）
           });
         }
       }
@@ -895,6 +900,11 @@
     function createAccountCard(account, menuItem) {
   console.log("创建账号卡片");
   console.log("账户数据为:", account);
+  
+  // 在函数顶部统一声明 accountType，用于区分文心智能体和百家号
+  // 如果是文心智能体（actualType为9），使用文心智能体的类型；否则使用menuId
+  const accountType = account.actualType !== undefined ? account.actualType : account.menuId;
+  
   const card = document.createElement("div");
   card.className = "account-card";
   
@@ -905,7 +915,7 @@
   }
 
   // 应用平台对应的卡片背景
-  const platformBgClass = platformCardBgMap[account.menuId] || "card-bg-default";
+  const platformBgClass = platformCardBgMap[accountType] || "card-bg-default";
   card.classList.add(platformBgClass);
 
   // 主账号标识
@@ -1086,7 +1096,7 @@
   enterBtn.textContent = account.status === "pending" ? "去授权" : "管理";
 
   // 应用平台对应的按钮颜色
-  const platformColorClass = platformColorMap[account.menuId] || "";
+  const platformColorClass = platformColorMap[accountType] || "";
   if (platformColorClass) {
     enterBtn.classList.add(platformColorClass);
   }
@@ -1104,7 +1114,8 @@
     console.log("当前账户信息为：", window.currentAccount);
     console.log("当前账户ID（acc_id）:", window.currentAccountId);
 
-    if (account.menuId === 9) {
+    // 判断是否为文心智能体：使用actualType而不是menuId
+    if (accountType === 9) {
       window.parent.postMessage(
         {
           type: "openWenxinAuth",
