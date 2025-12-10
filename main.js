@@ -28,9 +28,11 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 // 智能体的cookie
 let agent_cookies = [];
 
-const loginUrl = 'http://ai.zhongshang114.com';
-const checkUrl = "http://47.93.80.212:8000/api";
-const mainUrl = "http://192.168.0.35:8000/api"
+// const loginUrl = 'http://ai.zhongshang114.com';
+const loginUrl = 'http://39.96.205.150:19020'
+// const checkUrl = "http://47.93.80.212:8000/api";
+const checkUrl = "http://60.205.188.121:8000/api"
+// const mainUrl = "http://192.168.0.35:8000/api"
 
 // 请求去重机制
 const requestTracker = new Map();
@@ -578,7 +580,7 @@ ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, 
       'token': token
     };
 
-    const response = await axios.post(`${mainUrl}/desktop/check/sign/`, JSON.stringify(data), { headers });
+    const response = await axios.post(`${checkUrl}/desktop/check/sign/`, JSON.stringify(data), { headers });
     return response.data;
   } catch (error) {
     console.error('请求失败:', error);
@@ -628,7 +630,7 @@ ipcMain.handle("save-account-cookies", async (event, { userId, type, position, c
     });
 
     // 发送到服务器保存
-    const response = await axios.post(`${mainUrl}/desktop/check/saveAccountCookies/`, {
+    const response = await axios.post(`${checkUrl}/desktop/check/saveAccountCookies/`, {
       user_id: userId,
       type: type,
       position: position,
@@ -651,7 +653,7 @@ ipcMain.handle('get-account-status', async (event, { userId, type }) => {
   console.log('获取账号信息参数:', userId, type);
   try {
     const response = await axios.get(
-      `${mainUrl}/auth/accounts?user_id=${userId}&type_f=${type}`
+      `${checkUrl}/auth/accounts?user_id=${userId}&type_f=${type}`
     );
     
     console.log(response.data,'账号状态信息++++++++++++++')
@@ -948,7 +950,7 @@ ipcMain.handle('unbind-account', async (event, { accountId, userId }) => {
     console.log('解绑账号参数:', accountId, userId);
     
     const response = await axios.post(
-      `${mainUrl}/auth/unbind`,
+      `${checkUrl}/auth/unbind`,
       {},
       {
         params: {
@@ -1204,7 +1206,7 @@ const userCookieCache = new Map();
 async function getUserCookies(sendId) {
   console.log('---GET /desktop/save/agent/co/ for user:', sendId);
   try {
-    const response = await axios.get(`${mainUrl}/desktop/save/agent/co/?send_id=${sendId}`);
+    const response = await axios.get(`${checkUrl}/desktop/save/agent/co/?send_id=${sendId}`);
     const coList = response.data.data || [];
 
     if (!userCookieCache.has(sendId)) {

@@ -441,7 +441,7 @@
     let actualType = null; // 实际类型，用于接口调用（百家号和文心智能体都传menuId:1，但actualType不同）
     let navItems = [];
     let accounts = {};
-    let showMultipleAccounts = true; // 是否显示多个账号，主要用于百家号和文心智能体
+    let showMultipleAccounts = false; // 是否显示多个账号，主要用于百家号和文心智能体
     let currentUserData = null; //作为用户数据隔离
 
     // 平台颜色映射表 - 严格按要求配置
@@ -479,7 +479,7 @@
             accounts[currentUserData.sendId] = {};
           }
           // 检查用户是否为蓝V套餐用户
-          //showMultipleAccounts =  checkBlueVPackageStatus(currentUserData.sendId);
+          // showMultipleAccounts =  checkBlueVPackageStatus(currentUserData.sendId);
         }
         console.log("选择菜单", currentMenuId, "实际类型", actualType, "导航项数量", navItems.length);
         renderAccounts();

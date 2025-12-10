@@ -559,8 +559,25 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        /* height: calc(100vh - 80px); 减去底部控制栏高度 */
       }
 
+      #hubFrame {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: none;
+      }
+
+      #hubFrame.active {
+        display: block;
+      }
+
+      webview {
+        width: 100%;
+        height: 100%;
+        display: none;
+      }
       #hubFrame,
       webview {
         width: 100%;
@@ -571,7 +588,6 @@
         left: 0;
         z-index: -1;
       }
-      
       #hubFrame.active,
       webview.active {
         height: 100%;
@@ -613,7 +629,7 @@
           </div>
           <!-- 使用iframe加载hub页面，初始显示主页 webview -->
           <iframe
-            style="display:inline-flex; width:100%; height:100%"
+		  	style="display:inline-flex; width:100%; height:100%"
             id="hubFrame"
             src="./hub.html"
             allow="camera;microphone"
@@ -621,447 +637,18 @@
           <!-- 右侧 webview 容器 -->
           <webview
             id="browserView"
-            style="display:inline-flex; width:100%; height:100%"
+			style="display:inline-flex; width:100%; height:100%"
             partition="persist:zhongshang"
             disablewebsecurity
             webpreferences="javascript=yes, contextIsolation=yes"
             allowpopups
             useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-          ></webview>
+          >
+          </webview>
         </div>
       </div>
     </div>
 
-    <script>
-      // 修复：创建一个全新的electronAPI对象，而不是扩展可能已存在的对象
-      if (typeof window.electronAPI === 'undefined') {
-        window.electronAPI = {};
-      }
-
-      // 添加请求去重机制
-      const requestTracker = new Map();
-      
-      function generateRequestId(data) {
-        return `${data.currentNavId}_${data.sendId}_${data.position || 0}_${Date.now()}`;
-      }
-      
-      function isRequestPending(requestId) {
-        return requestTracker.has(requestId) && requestTracker.get(requestId) === 'pending';
-      }
-      
-      function setRequestStatus(requestId, status) {
-        requestTracker.set(requestId, status);
-        // 5秒后自动清理，防止内存泄漏
-        setTimeout(() => {
-          requestTracker.delete(requestId);
-        }, 5000);
-      }
-
-      // 添加Cookie数据解析辅助函数 - 修复版本
-      function parseCookieData(cookieString) {
-        let cookiesData = cookieString;
-        try {
-            //循环解析，直到不再是字符串为止
-            while (typeof cookiesData === 'string') {
-                cookiesData = JSON.parse(cookiesData);
-            }
-        } catch (e) {
-            console.error('Cookie数据解析失败:', e);
-            return null;
-        }
-        
-        // 检查解析结果
-        console.log("解析后的cookiesData类型:", typeof cookiesData, Array.isArray(cookiesData), cookiesData);
-        
-        // 如果是嵌套数组格式，找到第一个包含有效Cookie的数组
-        if (Array.isArray(cookiesData)) {
-          console.log("检测到数组格式，长度:", cookiesData.length);
-          
-          // 遍历数组，查找包含Cookie对象的子数组
-          for (let i = 0; i < cookiesData.length; i++) {
-            console.log(`检查数组索引 ${i}:`, cookiesData[i]);
-            
-            if (Array.isArray(cookiesData[i])) {
-              console.log(`索引 ${i} 是数组，长度:`, cookiesData[i].length);
-              
-              // 检查数组中的第一个元素是否包含Cookie对象
-              if (cookiesData[i].length > 0 && 
-                  typeof cookiesData[i][0] === 'object' && 
-                  cookiesData[i][0] && 
-                  cookiesData[i][0].name) {
-                console.log("找到有效的Cookie数组:", cookiesData[i]);
-                return cookiesData[i]; // 返回第一个包含Cookie对象的数组
-              }
-            }
-          }
-          
-          // 如果没有找到包含Cookie对象的数组，但顶层包含Cookie对象，直接返回
-          if (cookiesData.length > 0 && 
-              typeof cookiesData[0] === 'object' && 
-              cookiesData[0] && 
-              cookiesData[0].name) {
-            console.log("顶层数组包含有效的Cookie对象:", cookiesData);
-            return cookiesData;
-          }
-          
-          // 如果所有子数组都检查过了但没有找到有效的Cookie对象，返回第一个非空数组
-          for (let i = 0; i < cookiesData.length; i++) {
-            if (Array.isArray(cookiesData[i]) && cookiesData[i].length > 0) {
-              console.log("返回第一个非空嵌套数组:", cookiesData[i]);
-              return cookiesData[i];
-            }
-          }
-        }
-        
-        // 如果是简单数组格式
-        if (Array.isArray(cookiesData) && cookiesData.length > 0) {
-          console.log("返回简单数组格式:", cookiesData);
-          return cookiesData;
-        }
-        
-        console.log("未找到有效的Cookie数据");
-        return null;
-      }
-
-      // 修复：安全地为window.electronAPI添加函数，避免覆盖已存在的属性
-      function safeAssign(target, source) {
-        for (const key in source) {
-          if (source.hasOwnProperty(key) && !target.hasOwnProperty(key)) {
-            target[key] = source[key];
-          }
-        }
-      }
-
-      // 定义API函数
-      const apiFunctions = {
-        // 模拟API接口，实际在preload.js中会被替换
-        getMenuIsAuth: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              return await ipcRenderer.invoke('get-menu-is-auth', data);
-            } catch (error) {
-              console.error('获取菜单权限失败:', error);
-              return {};
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return {};
-          }
-        },
-        
-        checkUserCookies: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            
-            try {
-              // 生成唯一请求ID以防止重复请求
-              const requestId = generateRequestId(data);
-              
-              // 检查是否已有相同的请求在进行中
-              if (isRequestPending(requestId)) {
-                console.log('重复请求被阻止:', requestId);
-                return { success: true, message: '请求已在处理中' };
-              }
-              
-              // 标记请求为进行中
-              setRequestStatus(requestId, 'pending');
-              
-              // 从webview获取cookies
-              const cookies = await ipcRenderer.invoke('get-cookies', getDomainByMenuId(data.currentNavId));
-              
-              // 构建请求数据
-              const requestData = {
-                ...data,
-                cookiesList: cookies
-              };
-              
-              // 发送到服务器验证
-              const result = await ipcRenderer.invoke('check-user-cookies', requestData);
-              
-              if (result.success) {
-                // 保存账号Cookie到服务器 - 添加去重检查
-                await window.electronAPI.saveAccountCookies({
-                  userId: data.sendId,
-                  type: data.currentNavId,
-                  position: data.position,
-                  cookies: cookies,
-                  accId: data.acc_id || null
-                });
-                
-                console.log('授权验证成功并已保存Cookie');
-              } else {
-                console.error('授权验证失败:', result.error);
-              }
-              
-              // 更新请求状态
-              setRequestStatus(requestId, result.success ? 'success' : 'error');
-              
-              return result;
-            } catch (error) {
-              console.error('验证用户Cookie时出错:', error);
-              
-              // 发生错误时也更新请求状态
-              const requestId = generateRequestId(data);
-              setRequestStatus(requestId, 'error');
-              
-              return { success: false, error: error.message };
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return { success: true };
-          }
-        },
-        
-        // 修复：添加专门的saveAccountCookies函数，带去重机制
-        saveAccountCookies: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              // 生成保存请求的唯一ID
-              const saveRequestId = `save_${data.userId}_${data.type}_${data.position || 0}`;
-              
-              // 防止短时间内重复保存
-              if (isRequestPending(saveRequestId)) {
-                console.log('重复保存请求被阻止:', saveRequestId);
-                return { success: true, message: '保存已在进行中' };
-              }
-              
-              setRequestStatus(saveRequestId, 'pending');
-              
-              // 过滤重要Cookie - 修复：正确处理Cookie数据
-              let importantCookies = [];
-              if (Array.isArray(data.cookies)) {
-                // 如果cookies已经是数组格式
-                importantCookies = data.cookies.filter(cookie => {
-                  const importantNames = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'token', 'session', 'auth'];
-                  return importantNames.some(name => cookie.name && cookie.name.includes(name));
-                });
-              } else if (typeof data.cookies === 'string') {
-                // 如果cookies是字符串格式，先解析
-                try {
-                  const parsedCookies = JSON.parse(data.cookies);
-                  if (Array.isArray(parsedCookies)) {
-                    importantCookies = parsedCookies[0].filter(cookie => {
-                      const importantNames = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'token', 'session', 'auth'];
-                      return importantNames.some(name => cookie.name && cookie.name.includes(name));
-                    });
-                  }
-                } catch (parseError) {
-                  console.error('解析Cookie数据失败:', parseError);
-                  importantCookies = [];
-                }
-              }
-
-              // 发送到服务器保存
-              const response = await ipcRenderer.invoke('save-account-cookies', {
-                userId: data.userId,
-                type: data.type,
-                position: data.position,
-                cookies: JSON.stringify([importantCookies]), // 包装成数组格式
-                acc_id: data.accId
-              });
-              
-              setRequestStatus(saveRequestId, 'success');
-              return response;
-            } catch (error) {
-              console.error('保存账号Cookie失败:', error);
-              const saveRequestId = `save_${data.userId}_${data.type}_${data.position || 0}`;
-              setRequestStatus(saveRequestId, 'error');
-              return { success: false, error: error.message };
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return { success: true };
-          }
-        },
-        
-        getCookies: async (domain, partition = "persist:zhongshang") => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              return await ipcRenderer.invoke('get-cookies', domain, partition);
-            } catch (error) {
-              console.error(`获取 ${domain} 的Cookie失败:`, error);
-              return [];
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return [];
-          }
-        },
-        
-        logout: () => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            ipcRenderer.invoke('logout');
-          }
-        },
-        
-        setUserData: (callback) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            ipcRenderer.on('set-user-data-response', (event, data) => {
-              callback(data);
-            });
-          }
-        },
-        
-        moveWindow: (deltaX, deltaY) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            ipcRenderer.send('move-window', { deltaX, deltaY });
-          }
-        },
-        
-        setWebViewUserAgent: (userAgent) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            ipcRenderer.send('set-webview-user-agent', userAgent);
-          }
-        },
-        
-        // 修复：确保enterWebview函数存在
-        enterWebview: (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              console.log('调用enterWebview发送数据:', data);
-              ipcRenderer.send('enter-webview', data);
-            } catch (error) {
-              console.error('调用enterWebview失败:', error);
-            }
-          } else {
-            // 在浏览器环境中模拟
-            console.log('模拟enterWebview调用:', data);
-          }
-        },
-        
-        openUrlInNewWindow: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              return await ipcRenderer.invoke('open-url-in-new-window', data);
-            } catch (error) {
-              console.error('打开新窗口失败:', error);
-              return { success: false, error: error.message };
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return { success: true };
-          }
-        },
-        
-        migrateCookies: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              // 确保cookieData是数组格式
-              let processedCookieData = data.cookieData;
-              
-              if (typeof data.cookieData === 'string') {
-                try {
-                  const parsed = JSON.parse(data.cookieData);
-                  // 如果是嵌套数组，取第一个非空数组
-                  if (Array.isArray(parsed)) {
-                    for (let i = 0; i < parsed.length; i++) {
-                      if (Array.isArray(parsed[i]) && parsed[i].length > 0) {
-                        processedCookieData = parsed[i];
-                        break;
-                      }
-                    }
-                    // 如果没有找到非空数组，使用原数组
-                    if (!processedCookieData || processedCookieData.length === 0) {
-                      processedCookieData = parsed;
-                    }
-                  }
-                } catch (e) {
-                  console.error('解析Cookie字符串失败:', e);
-                  return { success: false, error: e.message };
-                }
-              }
-              
-              return await ipcRenderer.invoke('migrate-cookies', {
-                sourcePartition: data.sourcePartition,
-                targetPartition: data.targetPartition,
-                domain: data.domain,
-                cookieData: processedCookieData
-              });
-            } catch (error) {
-              console.error('Cookie迁移失败:', error);
-              return { success: false, error: error.message };
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return { success: true };
-          }
-        },
-        
-        getAccountStatus: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              return await ipcRenderer.invoke('get-account-status', data);
-            } catch (error) {
-              console.error('获取账号状态失败:', error);
-              return { success: false, accounts: [] };
-            }
-          } else {
-            // 模拟数据用于开发环境
-            return { success: true, accounts: [] };
-          }
-        },
-        
-        // 兼容原版本的功能
-        getAgentCookies: async () => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              return await ipcRenderer.invoke('get-agent-cookies');
-            } catch (error) {
-              console.error('获取智能体Cookie失败:', error);
-              return [];
-            }
-          } else {
-            return [];
-          }
-        },
-        
-        setCookies: async (data) => {
-          if (window.require) {
-            const { ipcRenderer } = require('electron');
-            try {
-              return await ipcRenderer.invoke('set-cookies', data);
-            } catch (error) {
-              console.error('设置Cookie失败:', error);
-              return { success: false };
-            }
-          } else {
-            return { success: true };
-          }
-        }
-      };
-
-      // 安全地添加API函数到electronAPI对象
-      safeAssign(window.electronAPI, apiFunctions);
-
-      // 辅助函数：根据菜单ID获取域名
-      function getDomainByMenuId(menuId) {
-        switch(menuId) {
-          case 1: return "https://baijiahao.baidu.com";
-          case 2: return "https://mp.sohu.com";
-          case 3: return "https://mp.toutiao.com";
-          case 4: return "http://zs.open.chuangmaedu.com";
-          case 5: return "https://mp.sina.com.cn";
-          case 6: return "https://om.qq.com";
-          case 7: return "https://mp.163.com";
-          case 8: return "https://post.smzdm.com";
-          case 9: return "https://agents.baidu.com";
-          default: return null;
-        }
-      }
-    </script>
-    
     <script src="./main.js"></script>
     <script>
       const userAgents = [
@@ -1148,13 +735,8 @@
       let sendFlag = false;
       let userName = "";
       let cookiesList = [];
-      let agentCookies = []; // 添加智能体cookie变量
-      let isCollectingLoginSequence = false; // 添加自动化流程标志
       let currentViewMode = "home"; // 初始化为主页模式
 
-      // 添加一个全局变量来跟踪当前账号信息
-      let currentAccountInfo = null;
-      
       window.electronAPI.setUserData((event, data) => {
         token = data.token;
         sendId = data.sendId;
@@ -1200,9 +782,7 @@
           if (!isDragging) return;
           const deltaX = e.clientX - startX;
           const deltaY = e.clientY - startY;
-          window.electronAPI.moveWindow(deltaX, deltaY);
-          startX = e.clientX;
-          startY = e.clientY;
+          window.electronAPI.moveWindow({ deltaX, deltaY });
         });
 
         document.addEventListener("mouseup", () => {
@@ -1337,15 +917,14 @@
               subMenu.style.opacity = "0.85";
               subMenu.style.display = "none";
               subMenu.innerHTML = `<span>🤖</span><span class="menu-text">文心智能体</span>`;
-              
-              // 兼容两种版本的文心智能体点击事件
+             // 修改 renderer/main.html 中关于文心智能体的点击事件
               subMenu.addEventListener("click", async () => {
                 document.querySelector(".nav-item.active").classList.remove("active");
                 subMenu.classList.add("active");
                 
                 // 切换到账号管理视图
                 currentViewMode = "hub";
-                currentNavId = 1; // 与百家号使用相同的menuId
+                currentNavId = 9; // 为文心智能体分配一个新的ID
                 const hubFrame = document.getElementById("hubFrame");
                 const webview = document.getElementById("browserView");
                 
@@ -1353,13 +932,11 @@
                 webview.classList.remove("active");
                 
                 // 通知hub页面切换到文心智能体账号管理
-                // 传参与百家号相同（menuId: 1），但添加actualType标识实际类型为9
                 hubFrame.contentWindow.postMessage({
                   type: "selectMenu",
-                  menuId: 1, // 与百家号传参相同
-                  actualType: 9, // 实际类型标识，用于接口调用
+                  menuId: 9,
                   navItems: [...navItems, {
-                    id: 1,
+                    id: 9,
                     name: "文心智能体",
                     url: "https://agents.baidu.com/center",
                     icon: "🤖",
@@ -1368,6 +945,12 @@
                   }],
                   userData: {sendId: sendId}
                 }, "*");
+                // hubFrame.contentWindow.postMessage({
+                //   type: "selectMenu",
+                //   menuId: item.id,
+                //   navItems: navItems,
+                //   userData: {sendId: sendId}  // 确保这里的 sendId 是正确的当前用户ID
+                // }, "*");
               });
               navItemsCo.appendChild(subMenu);
             }
@@ -1431,9 +1014,50 @@
       });
 
       webview.addEventListener("did-finish-load", async () => {
+        webview.executeJavaScript(`
+				// 查找目标iframe（根据实际情况修改选择器）
+				const targetIframe = document.querySelector('iframe'); // 替换为实际的iframe选择器
+				
+				if (targetIframe) {
+				// 等待iframe加载完成
+				targetIframe.addEventListener('load', () => {
+					try {
+					// 获取iframe的文档对象
+					const iframeDoc = targetIframe.contentDocument || targetIframe.contentWindow.document;
+					
+					// 查找shadow root（根据实际情况修改选择器）
+					const shadowHost = iframeDoc.querySelector('#shadowHost'); // 替换为实际的shadow宿主选择器
+					if (shadowHost && shadowHost.shadowRoot) {
+						const shadowRoot = shadowHost.shadowRoot;
+						
+						// 创建样式元素并添加样式规则
+						const style = document.createElement('style');
+						style.textContent = \`
+						/* 在这里添加你的样式规则 */
+						.some-class { color: red; }
+						#some-id { background: blue; }
+						body { font-size: 14px; }
+						\`;
+						
+						// 将样式添加到shadow root
+						shadowRoot.appendChild(style);
+						
+						console.log('样式已成功注入到shadow DOM');
+					} else {
+						console.log('未找到shadow root');
+					}
+					} catch (e) {
+					console.error('修改样式时出错:', e);
+					}
+				});
+				} else {
+				console.log('未找到目标iframe');
+				}
+			`);
         hideLoading();
         const currentUrl = webview.getURL();
-        console.log("Webview加载完成，当前url:", currentUrl);
+        const url = new URL(currentUrl);
+        console.log("-----", url);
         if (
           currentUrl.includes("https://mp.toutiao.com/profile_v4/index") ||
           "/profile_v4/index".includes(currentUrl)
@@ -1456,21 +1080,18 @@
         if (currentUrl.includes("https://om.qq.com/main")) {
           checkLoginStatus(currentUrl);
         }
-        // 兼容原版本的智能体cookie获取
-        agentCookies = await window.electronAPI.getAgentCookies();
-        console.log('当前智能体的cookies:', agentCookies);
       });
 
       webview.addEventListener("did-fail-load", (event) => {
-        const { errorCode, errorDescription, validatedURL } = event;
-        // 忽略一些常见的非关键错误码，避免日志刷屏
-        if (errorCode !== -3 && errorCode !== -27) {
-          console.error(
-            `Webview加载失败: ${errorCode} - ${errorDescription} - URL: ${validatedURL}`
-          );
-        }
-        // 隐藏加载动画
-        hideLoading();
+      const { errorCode, errorDescription, validatedURL } = event;
+      // 忽略一些常见的非关键错误码，避免日志刷屏
+      if (errorCode !== -3 && errorCode !== -27) {
+        console.error(
+          `Webview加载失败: ${errorCode} - ${errorDescription} - URL: ${validatedURL}`
+        );
+      }
+      // 隐藏加载动画
+      hideLoading();
       });
 
       webview.addEventListener("did-navigate-in-page", (event) => {
@@ -1487,26 +1108,16 @@
           const hubFrame = document.getElementById("hubFrame");
           const containerView = document.querySelector('.view-container');
           
-          // 更新当前账号信息
-          currentAccountInfo = {
-            id: event.data.id,
-            name: event.data.name,
-            acc_id: event.data.acc_id,
-            position: event.data.position,
-            menuId: event.data.menuId
-          };
-          
-          console.log("当前账户信息为：", currentAccountInfo);
-          console.log("当前账户ID（acc_id）:", currentAccountInfo.acc_id);
 
           // 获取额外参数
           const isMain = event.data.isMain || 0;
           const position = event.data.position || 1;
-          const accId = event.data.acc_id || null;
 
           // 将position参数保存到window对象中，以便在checkLoginStatus函数中使用
           window.currentAccountPosition = position;
-
+          // window.currentAccountId = accountId;
+          // 保存accountId到webview的data属性中，以便后续获取
+          // newWebview.setAttribute('data-account-id', accountId);
           // 移除旧的 webview
           const oldWebview = document.getElementById("browserView");
           if (oldWebview) {
@@ -1517,273 +1128,90 @@
           const newWebview = document.createElement('webview');
           newWebview.id = "browserView";
           newWebview.style.cssText = "display:inline-flex; width:100%; height:100%";
-          
           // 为不同账号创建独立的分区
-          // 根据账号状态决定使用哪个分区
-          let partition;
-          if (accId && accId !== null) {
-            // 已授权账号使用独立分区
-            partition = `persist:account_acc_${accId}_pos_${position}`;
-          } else {
-            // 未授权账号使用临时分区
-            partition = `persist:temp_${event.data.menuId}_${position}_${Date.now()}`;
-          }
-          
-          newWebview.partition = partition;
+          newWebview.partition = `persist:account_${event.data.accountId}`;
           newWebview.setAttribute("disablewebsecurity", "");
           newWebview.setAttribute("webpreferences", "javascript=yes, contextIsolation=yes");
           newWebview.setAttribute("allowpopups", "");
           newWebview.setAttribute("useragent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36");
           
-          // 如果是已授权账号，预先设置cookie
-          if (accId && accId !== null && event.data.accountIndex) {
-            // 先不立即添加webview，而是先设置cookie
-            setAccountCookies(partition, event.data.menuId, accId, position).then(() => {
-              // Cookie设置完成后，再添加webview并加载页面
-              finishWebviewSetup(newWebview, hubFrame, containerView, event.data, partition);
-            });
-          } else {
-            // 未授权账号直接添加webview
-            finishWebviewSetup(newWebview, hubFrame, containerView, event.data, partition);
-          }
+          // 添加事件监听器
+          newWebview.addEventListener("did-start-loading", () => {
+            showLoading();
+          });
+          
+          newWebview.addEventListener("did-stop-loading", () => {
+            hideLoading();
+          });
+          
+          newWebview.addEventListener("did-finish-load", async () => {
+            hideLoading();
+            const currentUrl = newWebview.getURL();
+            if (
+              currentUrl.includes("https://mp.toutiao.com/profile_v4/index") ||
+              "/profile_v4/index".includes(currentUrl)
+            ) {
+              checkLoginStatus(currentUrl);
+            }
+            if (
+              currentUrl.includes(
+                "http://zs.open.chuangmaedu.com/openPlatform/callback"
+              )
+            ) {
+              checkLoginStatus(currentUrl);
+            }
+            if (
+              currentUrl.includes("https://post.smzdm.com/tougao") &&
+              !currentUrl.includes("login")
+            ) {
+              checkLoginStatus(currentUrl);
+            }
+            if (currentUrl.includes("https://om.qq.com/main")) {
+              checkLoginStatus(currentUrl);
+            }
+          });
+          
+          newWebview.addEventListener("did-navigate-in-page", (event) => {
+            const currentUrl = event.url || newWebview.getURL();
+            checkLoginStatus(currentUrl);
+          });
 
           // 添加到容器中
           containerView.appendChild(newWebview);
 
           hubFrame.classList.remove("active");
           newWebview.classList.add("active");
+
+          showLoading();
+          const randomUA = getRandomUserAgent();
+          if (window.electronAPI && window.electronAPI.setWebViewUserAgent) {
+            window.electronAPI.setWebViewUserAgent(randomUA);
+          }
+
+          // 从navItems中获取对应的url
+          const menuItem = navItems.find(
+            (item) => item.id === event.data.menuId
+          );
+          if (menuItem) {
+            if (event.data.menuId === 4) {
+              newWebview.src = menuItem.url + sendId;
+            } else if (event.data.menuId === 8) {
+              newWebview.src = menuItem.url + sendId;
+            } else {
+              newWebview.src = menuItem.url;
+            }
+          }
         }
-        
         if (event.data.type === "openWenxinAuth") {
           // 打开文心智能体授权页面
-          if (window.electronAPI && typeof window.electronAPI.openUrlInNewWindow === 'function') {
-            window.electronAPI.openUrlInNewWindow({
-              url: event.data.url,
-              partition: `persist:wenxin_${event.data.accountId}`,
-              acc_id: event.data.accountId,
-            });
-          } else {
-            console.error("window.electronAPI.openUrlInNewWindow is not a function");
-          }
+          window.electronAPI.openUrlInNewWindow({
+            url: event.data.url,
+            partition: `persist:wenxin_${event.data.accountId}`,
+            acc_id: event.data.accountId,
+          });
+          
         }
       });
-
-      // 新增函数：完成webview设置
-      function finishWebviewSetup(newWebview, hubFrame, containerView, data, partition) {
-        // 添加事件监听器
-        newWebview.addEventListener("did-start-loading", () => {
-          showLoading();
-        });
-        
-        newWebview.addEventListener("did-stop-loading", () => {
-          hideLoading();
-        });
-
-        newWebview.addEventListener("did-fail-load", (event) => {
-          const { errorCode, errorDescription, validatedURL } = event;
-          // 忽略一些常见的非关键错误码，避免日志刷屏
-          if (errorCode !== -3 && errorCode !== -27) {
-            console.error(
-              `Webview加载失败: ${errorCode} - ${errorDescription} - URL: ${validatedURL}`
-            );
-          }
-          // 隐藏加载动画
-          hideLoading();
-        });
-        
-        newWebview.addEventListener("did-finish-load", async () => {
-          hideLoading();
-          const currentUrl = newWebview.getURL();
-          console.log("Webview加载完成，当前url:", currentUrl);
-          if (
-            currentUrl.includes("https://mp.toutiao.com/profile_v4/index") ||
-            "/profile_v4/index".includes(currentUrl)
-          ) {
-            checkLoginStatus(currentUrl);
-          }
-          if (
-            currentUrl.includes(
-              "http://zs.open.chuangmaedu.com/openPlatform/callback"
-            )
-          ) {
-            checkLoginStatus(currentUrl);
-          }
-          if (
-            currentUrl.includes("https://post.smzdm.com/tougao") &&
-            !currentUrl.includes("login")
-          ) {
-            checkLoginStatus(currentUrl);
-          }
-          if (currentUrl.includes("https://om.qq.com/main")) {
-            checkLoginStatus(currentUrl);
-          }
-          // 兼容原版本的智能体cookie获取
-          agentCookies = await window.electronAPI.getAgentCookies();
-          console.log('当前智能体的cookies:', agentCookies);
-        });
-        
-        newWebview.addEventListener("did-navigate-in-page", (event) => {
-          const currentUrl = event.url || newWebview.getURL();
-          console.log("页面内URL变化:", currentUrl);
-          checkLoginStatus(currentUrl);
-        });
-
-        // 添加到容器中
-        containerView.appendChild(newWebview);
-
-        hubFrame.classList.remove("active");
-        newWebview.classList.add("active");
-
-        showLoading();
-        const randomUA = getRandomUserAgent();
-        if (window.electronAPI && window.electronAPI.setWebViewUserAgent) {
-          window.electronAPI.setWebViewUserAgent(randomUA);
-        }
-
-        // 从navItems中获取对应的url
-        const menuItem = navItems.find(
-          (item) => item.id === data.menuId
-        );
-        if (menuItem) {
-          let targetUrl = menuItem.url;
-          
-          // 根据账号状态决定加载的URL
-          // 如果账号已授权且有服务器数据，直接加载平台主页
-          if (data.acc_id && data.acc_id !== null) {
-            // 已授权账号，加载平台主页
-            switch(data.menuId) {
-              case 1: // 百家号
-                targetUrl = "https://baijiahao.baidu.com/builder/rc/home";
-                break;
-              case 2: // 搜狐号
-                targetUrl = "https://mp.sohu.com/mpfe/v3/main";
-                break;
-              case 3: // 头条号
-                targetUrl = "https://mp.toutiao.com/profile_v4/index";
-                break;
-              case 5: // 新浪看点
-                targetUrl = "https://mp.sina.com.cn/main/articleList";
-                break;
-              case 6: // 企鹅号
-                targetUrl = "https://om.qq.com/main";
-                break;
-              case 7: // 网易号
-                targetUrl = "https://mp.163.com/index.html";
-                break;
-              case 8: // 什么值得买
-                targetUrl = "https://post.smzdm.com/tougao";
-                break;
-              case 9: // 文心智能体
-                targetUrl = "https://agents.baidu.com/center";
-                break;
-              // 其他平台保持默认URL
-            }
-          } else {
-            // 未授权账号，加载登录页面
-            switch(data.menuId) {
-              case 1: // 百家号
-                targetUrl = "https://baijiahao.baidu.com/";
-                break;
-              case 2: // 搜狐号
-                targetUrl = "https://mp.sohu.com/mpfe/v4/login";
-                break;
-              case 3: // 头条号
-                targetUrl = "https://mp.toutiao.com/auth/page/login";
-                break;
-              case 4: // 微信公众号
-                targetUrl = menuItem.url + sendId;
-                break;
-              case 5: // 新浪看点
-                targetUrl = "https://mp.sina.com.cn/";
-                break;
-              case 6: // 企鹅号
-                targetUrl = "https://om.qq.com/main";
-                break;
-              case 8: // 网易号
-                targetUrl = "https://mp.163.com/login.html#/";
-                break;
-              case 9: // 文心智能体
-                targetUrl = "https://agents.baidu.com/center";
-                break;
-            }
-          }
-          
-          if (data.menuId === 4) {
-            newWebview.src = targetUrl + sendId;
-          } else if (data.menuId === 8) {
-            newWebview.src = targetUrl + sendId;
-          } else {
-            newWebview.src = targetUrl;
-          }
-          console.log(`加载URL:${newWebview.src}, 分区:${partition}`);
-        }
-        
-        // 发送消息给主窗口
-        console.log("发送进入webview消息给主窗口");
-        if (window.electronAPI && typeof window.electronAPI.enterWebview === 'function') {
-          window.electronAPI.enterWebview({
-            accountId: `acc_${data.acc_id}_pos_${data.position}`,
-            position: data.position,
-            menuId: data.menuId,
-            accId: data.acc_id
-          });
-          console.log("消息已发送，accountId:", `acc_${data.acc_id}_pos_${data.position}`, "position:", data.position);
-        } else {
-          console.error("window.electronAPI.enterWebview is not a function");
-        }
-      }
-
-      // 新增函数：设置账号cookie
-      async function setAccountCookies(partition, menuId, accId, position) {
-        try {
-          console.log("开始为分区设置cookie:", partition);
-          // 调用主进程获取已保存的账号状态信息
-          const accountStatusData = await window.electronAPI.getAccountStatus({
-            userId: sendId,
-            type: menuId
-          });
-          
-          if (accountStatusData.success) {
-            // 查找指定位置的账号
-            const account = accountStatusData.accounts.find(acc => acc.acc_id === accId && acc.position === position);
-            
-            if (account && account.cookies) {
-              console.log("找到账号cookie数据，准备设置到分区");
-              console.log("cookies:", account.cookies);
-              
-              // 使用修复后的解析函数
-              const cookiesData = parseCookieData(account.cookies);
-              console.log("解析后的cookiesData:", cookiesData);
-              
-              if (cookiesData && Array.isArray(cookiesData) && cookiesData.length > 0) {
-                // 获取目标域名
-                const domain = getDomainByMenuId(menuId);
-                if (domain) {
-                  // 使用cookie迁移功能将cookie设置到目标分区
-                  const migrateResult = await window.electronAPI.migrateCookies({
-                    sourcePartition: "persist:zhongshang",
-                    targetPartition: partition,
-                    domain: domain,
-                    cookieData: cookiesData
-                  });
-                  console.log("Cookie迁移结果:", migrateResult);
-                  return migrateResult.success;
-                }
-              } else {
-                console.log("未找到有效的cookie数据或cookie数据为空");
-                console.log("解析后的cookiesData:", cookiesData);
-              }
-            } else {
-              console.log("未找到账号或cookie数据", { account: !!account, hasCookies: account && !!account.cookies });
-            }
-          } else {
-            console.log("获取账号状态失败");
-          }
-        } catch (error) {
-          console.error("设置账号cookie时出错:", error);
-        }
-        return false;
-      }
 
       function showLoading() {
         const loadingOverlay = document.getElementById("loadingOverlay");
@@ -1795,153 +1223,30 @@
         loadingOverlay.classList.remove("show");
       }
 
-      // 定义一个辅助函数来获取当前 webview 分区的 cookies
-      async function getCurrentWebviewCookies(domain, partition) {
-        try {
-          // 使用传入的分区，而不是默认分区
-          const cookies = await window.electronAPI.getCookies(domain, partition);
-          console.log(`获取分区 ${partition} 的 cookies for domain: ${domain}`, cookies);
-          return cookies;
-        } catch (error) {
-          console.error(`获取分区 ${partition} 的 cookies 失败:`, error);
-          return [];
-        }
-      }
-
-      // 兼容原版本的自动按顺序访问百度三个页面并收集 cookie 的辅助函数
-      async function updateLoginStatus() {
-        cookiesList = [];
-        isCollectingLoginSequence = true;
-        showLoading();
-        const webview = document.getElementById("browserView");
-        const steps = [
-          { url: 'https://baijiahao.baidu.com/builder/rc/home', domain: 'https://baijiahao.baidu.com' },
-          { url: 'https://passport.baidu.com/v6/ucente', domain: 'https://passport.baidu.com' },
-          { url: 'https://agents.baidu.com/center', domain: 'https://agents.baidu.com' }
-        ];
-        
-        function waitForWebviewLoadOnce() {
-          return new Promise((resolve) => {
-            const onFinish = () => {
-              try { webview.removeEventListener('did-finish-load', onFinish); } catch (e) {}
-              setTimeout(resolve, 2000);
-            };
-            webview.addEventListener('did-finish-load', onFinish);
-          });
-        }
-
-        try {
-          for (let i = 0; i < steps.length; i++) {
-            const step = steps[i];
-            try {
-              webview.src = step.url;
-              await waitForWebviewLoadOnce();
-              window.electronAPI.getCookies(step.domain).then((result)=>{
-                cookiesList.push(result);
-                console.log('Collected cookies for', step.domain, result);
-                if (step.url.includes('passport.baidu.com')) {
-                  console.log('写入反向登录的智能体cookie');
-                  window.electronAPI.setCookies({
-                    targetUrl: 'https://agents.baidu.com',
-                    cookies: agentCookies,
-                    domain: '.baidu.com'
-                  }).then(() => {
-                    console.log("智能体 Cookie 已设置");
-                    setTimeout(() => {
-                      webview.src = "https://agents.baidu.com/center";
-                    }, 3000); 
-                  });
-                }
-                if (step.domain.includes('agents.baidu.com')) {
-                  window.electronAPI.checkUserCookies({ currentNavId, cookiesList, token, sendId }).then(()=>{
-                    console.log("跳回 https://baijiahao.baidu.com/builder/rc/home");
-                    setTimeout(() => {
-                      webview.src = "https://baijiahao.baidu.com/builder/rc/home";
-                    }, 2000);
-                    setTimeout(() => {
-                      isCollectingLoginSequence = false;
-                    }, 3000);
-                    showSuccessMessage("更新授权成功");
-                  });
-                }
-              });
-            } catch (err) {
-              console.error('Error collecting cookies for', step.domain, err);
-            }
-          }
-        } finally {
-          hideLoading();
-        }
-      }
-
-      async function checkLoginStatus(url) {
-        // 如果自动化流程在运行，跳过页面监控的自动切换/收集逻辑，避免重复/冲突
-        if (isCollectingLoginSequence) {
-          console.log('checkLoginStatus skipped (automation in progress)');
-          return;
-        }
-        
+      function checkLoginStatus(url) {
         console.log("---验证url", url);
         console.log("获取到的数据是：", navItems);
-        const menuItem = navItems.find((item) => item.id === currentNavId);
-        console.log("-----menuItem------", menuItem);
-
+        const a = navItems.find((item) => item.id === currentNavId);
+        console.log("-----a------", a);
+        
+        // 获取当前账号位置信息（默认从window对象获取，由hub页面传递）
         const currentPosition = window.currentAccountPosition || 1;
-
-        // 获取当前 webview 的分区
-        const currentWebview = document.getElementById("browserView");
-        const currentPartition = currentWebview ? currentWebview.partition : "persist:zhongshang";
-        console.log("当前 webview 分区:", currentPartition);
-
-        // 百家号登录检查 - 兼容两种版本的逻辑
-        if (url.includes("baijiahao.baidu.com/builder/rc/home") && menuItem && !menuItem.flag) {
-          try {
-            console.log("从当前webview分区获取cookie for domain:", "https://baijiahao.baidu.com", "分区:", currentPartition);
-            const result = await getCurrentWebviewCookies("https://baijiahao.baidu.com", currentPartition);
-            cookiesList = result;
-            
-            if (!cookiesList || cookiesList.length === 0) {
-              console.log("未获取到有效的百家号cookie，登录验证失败");
-              showSuccessMessage("登录验证失败: 未获取到有效的登录状态");
-              return;
-            }
-
-            let formattedCookies;
-            if (Array.isArray(cookiesList)) {
-              formattedCookies = [cookiesList]; // 包装成嵌套数组格式
-            } else {
-              formattedCookies = [[cookiesList]]; // 双重包装
-            }
-            console.log("格式化后的cookies:", formattedCookies);
-            
-            const checkResult = await window.electronAPI.checkUserCookies({
-              currentNavId,
-              cookiesList: formattedCookies,
-              token,
-              sendId,
-              position: currentPosition,
-              is_main: currentPosition === 1 ? 1 : 0
-            });
-
-            if (checkResult.success) {
-              menuItem.flag = true;
-              showSuccessMessage("登录成功");
-              const hubFrame = document.getElementById("hubFrame");
-              if (hubFrame && hubFrame.contentWindow) {
-                hubFrame.contentWindow.postMessage({ type: "accountAuthorized", menuId: currentNavId, userId: sendId }, "*");
-              }
-            } else {
-              showSuccessMessage("登录验证失败: " + (checkResult.message || "未知错误"));
-            }
-          } catch (error) {
-            console.error("检查百家号登录状态失败:", error);
-            showSuccessMessage("登录验证出错: " + error.message);
-          }
+        // 获取当前webview的partition
+        const webview = document.getElementById("browserView");
+        const accountId = window.currentAccountId || webview.getAttribute('data-account-id');
+        const partition = accountId ? `persist:account_${accountId}` : null;
+        if (
+          url.includes("baijiahao.baidu.com") &&
+          a &&
+          !a.flag
+        ) {
+          // 直接加载百家号平台页面，让其自然跳转到登录页
+          const webview = document.getElementById("browserView");
+          webview.src = "https://baijiahao.baidu.com/";
         }
         
-        // 兼容原版本的passport页面逻辑
-        if (url.includes("passport.baidu.com/v6/ucente") && menuItem && !menuItem.flag) {
-          res = window.electronAPI.getCookies("https://passport.baidu.com");
+        if (url.includes("passport.baidu.com/v6/ucente") && a && !a.flag) {
+          res = window.electronAPI.getCookies("https://passport.baidu.com", partition);
           res.then((result) => {
             cookiesList.push(result);
             const webview = document.getElementById("browserView");
@@ -1951,9 +1256,8 @@
           });
         }
         
-        // 兼容原版本的智能体中心逻辑
-        if (url.includes("agents.baidu.com/center") && menuItem && !menuItem.flag) {
-          res = window.electronAPI.getCookies("https://agents.baidu.com");
+        if (url.includes("agents.baidu.com/center") && a && !a.flag) {
+          res = window.electronAPI.getCookies("https://agents.baidu.com", partition);
           res.then((result) => {
             cookiesList.push(result);
 
@@ -1976,14 +1280,14 @@
 
             window.electronAPI.checkUserCookies({
               currentNavId,
-              cookiesList: cookiesList,
+              cookiesList,
               token,
               sendId,
               acc_id: acc_id,
               position: currentPosition,
               is_main: isMain,
             });
-            menuItem.flag = true;
+            a.flag = true;
             setTimeout(() => {
               console.log("跳转回百家号首页");
               const webview = document.getElementById("browserView");
@@ -1991,29 +1295,35 @@
             }, 2000);
             showSuccessMessage("登录成功");
 
-            if (currentViewMode === "webview" && currentNavId === 1) {
-              // 百家号授权成功，通知 hub 页面刷新
-              const hubFrame = document.getElementById("hubFrame");
-              if (hubFrame && hubFrame.contentWindow) {
-                hubFrame.contentWindow.postMessage({
-                  type: "accountAuthorized",
-                  menuId: currentNavId,
-                  userId: sendId
-                }, "*");
-              }
+            // if (currentViewMode === "webview" && currentNavId === 1) {
+            //   // 百家号授权成功，通知 hub 页面刷新
+            //   const hubFrame = document.getElementById("hubFrame");
+            //   if (hubFrame && hubFrame.contentWindow) {
+            //     hubFrame.contentWindow.postMessage({
+            //       type: "accountAuthorized",
+            //       menuId: currentNavId,
+            //       userId: sendId
+            //     }, "*");
+            // 所有平台授权成功，通知 hub 页面刷新
+            const hubFrame = document.getElementById("hubFrame");
+            if (hubFrame && hubFrame.contentWindow) {
+              hubFrame.contentWindow.postMessage({
+                type: "accountAuthorized",
+                menuId: currentNavId,
+                userId: sendId
+              }, "*");
+              // }
             }
           });
         }
-        
-        // 搜狐号登录检查
         if (
           url.includes(
             "https://mp.sohu.com/mpfe/v4/contentManagement/first/page"
           ) &&
-          menuItem &&
-          !menuItem.flag
+          a &&
+          !a.flag
         ) {
-          res = window.electronAPI.getCookies("https://mp.sohu.com");
+          res = window.electronAPI.getCookies("https://mp.sohu.com", partition);
           res.then((result) => {
             cookiesList = [];
             cookiesList.push(...result);
@@ -2022,21 +1332,20 @@
               cookiesList,
               token,
               sendId,
+              // acc_id: getCurrentAccountId()
               position: currentPosition
             });
-            menuItem.flag = true;
+            a.flag = true;
           });
           showSuccessMessage("登录成功");
         }
-        
-        // 头条号登录检查
         if (
           (url.includes("https://mp.toutiao.com/profile_v4/index") ||
             "profile_v4/index".includes(url)) &&
-          menuItem &&
-          !menuItem.flag
+          a &&
+          !a.flag
         ) {
-          res = window.electronAPI.getCookies("https://mp.toutiao.com");
+          res = window.electronAPI.getCookies("https://mp.toutiao.com", partition);
           res.then((result) => {
             cookiesList = [];
             cookiesList.push(...result);
@@ -2047,14 +1356,12 @@
               sendId,
               position: currentPosition
             });
-            menuItem.flag = true;
+            a.flag = true;
           });
           showSuccessMessage("登录成功");
         }
-        
-        // 新浪看点登录检查
-        if (url.includes("https://mp.sina.com.cn/#") && menuItem && !menuItem.flag) {
-          res = window.electronAPI.getCookies("https://mp.sina.com.cn");
+        if (url.includes("https://mp.sina.com.cn/#") && a && !a.flag) {
+          res = window.electronAPI.getCookies("https://mp.sina.com.cn", partition);
           res.then((result) => {
             cookiesList = [];
             cookiesList.push(...result);
@@ -2065,14 +1372,12 @@
               sendId,
               position: currentPosition
             });
-            menuItem.flag = true;
+            a.flag = true;
           });
           showSuccessMessage("登录成功");
         }
-        
-        // 企鹅号登录检查
-        if (url.includes("https://om.qq.com/main") && menuItem && !menuItem.flag) {
-          res = window.electronAPI.getCookies("https://om.qq.com");
+        if (url.includes("https://om.qq.com/main") && a && !a.flag) {
+          res = window.electronAPI.getCookies("https://om.qq.com", partition);
           res.then((result) => {
             cookiesList = [];
             cookiesList.push(...result);
@@ -2083,18 +1388,16 @@
               sendId,
               position: currentPosition
             });
-            menuItem.flag = true;
+            a.flag = true;
           });
           showSuccessMessage("登录成功");
         }
-        
-        // 微信公众号登录检查
         if (
           url.includes(
             "http://zs.open.chuangmaedu.com/openPlatform/callback"
           ) &&
-          menuItem &&
-          !menuItem.flag
+          a &&
+          !a.flag
         ) {
           const data = {
             type: currentNavId,
@@ -2113,7 +1416,8 @@
             .then((res) => res.json())
             .then((resultData) => {
               res = window.electronAPI.getCookies(
-                "http://zs.open.chuangmaedu.com"
+                "http://zs.open.chuangmaedu.com",
+                partition
               );
               res.then((result) => {
                 cookiesList = [];
@@ -2125,50 +1429,28 @@
                   sendId,
                   position: currentPosition
                 });
-                menuItem.flag = true;
+                a.flag = true;
               });
               showSuccessMessage("登录成功");
             });
         }
-        
-        // 什么值得买登录检查
-        if (url.includes("https://post.smzdm.com/tougao/") && menuItem && !menuItem.flag) {
-          res = window.electronAPI.getCookies("https://post.smzdm.com");
-          console.log(window.electronAPI.getCookies("https://zhiyou.smzdm.com"));
-          cookiesList = [];
-          res.then((result) => {
-            cookiesList.push(...result);
-            console.log("当前页面的所有cookie:", cookiesList);
-            const result2 = window.electronAPI.checkUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              position: currentPosition
-            });
-            menuItem.flag = true;
-          });
-          showSuccessMessage("登录成功");
-        }
-        
-        // 网易号登录检查
-        if (url.includes("http://mp.163.com/subscribe_v4/index.html#/") && menuItem && !menuItem.flag) {
-          res = window.electronAPI.getCookies("http://mp.163.com");
-          res.then((result) => {
-            cookiesList = [];
-            cookiesList.push(...result);
-            console.log("当前页面的所有cookie:", cookiesList);
-            const result2 = window.electronAPI.checkUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              position: currentPosition
-            });
-            menuItem.flag = true;
-          });
-          showSuccessMessage("登录成功");
-        }
+      }
+
+      function showSuccessMessage(message) {
+        const messageBox = document.createElement("div");
+        messageBox.className = "message-box";
+        messageBox.innerHTML = `
+                <h3>✓ 成功</h3>
+                <p>${message}</p>
+                <button onclick="this.parentElement.remove()">确定</button>
+            `;
+        document.body.appendChild(messageBox);
+
+        setTimeout(() => {
+          if (messageBox.parentElement) {
+            messageBox.remove();
+          }
+        }, 3000);
       }
 
       function updateAuthorization() {
@@ -2176,26 +1458,10 @@
         showLoading();
         const webview = document.getElementById("browserView");
         const currentUrl = webview.getURL();
-        
-        // 获取当前位置信息
-        const currentPosition = window.currentAccountPosition || 1;
         let domain = "";
-        
-        // 兼容原版本的百家号特殊处理
         if (currentUrl.includes("baijiahao.baidu.com")) {
           domain = "https://baijiahao.baidu.com";
-          try {
-            updateLoginStatus();
-          } catch (e) {
-            console.error("调用 updateLoginStatus 失败:", e);
-            // 如果自动化流程失败，使用通用方法
-            performGenericAuthUpdate(domain, currentPosition);
-          }
-          return;
-        }
-        
-        // 其他平台的通用处理
-        if (currentUrl.includes("mp.sohu.com")) {
+        } else if (currentUrl.includes("mp.sohu.com")) {
           domain = "https://mp.sohu.com";
         } else if (currentUrl.includes("mp.toutiao.com")) {
           domain = "https://mp.toutiao.com";
@@ -2212,14 +1478,11 @@
           showSuccessMessage("当前页面不支持更新授权");
           return;
         }
-        
-        performGenericAuthUpdate(domain, currentPosition);
-      }
-      
-      // 通用授权更新函数
-      function performGenericAuthUpdate(domain, currentPosition) {
+        // 获取当前账号信息，用于构建partition
+        const accountId = window.currentAccountId || webview.getAttribute('data-account-id');
+        const partition = accountId ? `persist:account_${accountId}` : null;
         window.electronAPI
-          .getCookies(domain)
+          .getCookies(domain, partition)
           .then((result) => {
             console.log("获取到的cookies:", result);
             const result2 = window.electronAPI.checkUserCookies({
@@ -2239,15 +1502,60 @@
           });
       }
 
-      // 显示成功消息的函数
-      function showSuccessMessage(message) {
-        console.log("=====弹框==", message);
-        try {
-          // 使用alert作为简单实现，实际项目中可以替换为更优雅的通知组件
-          alert(message);
-        } catch (error) {
-          console.error("显示消息失败:", error);
-        }
+      function setupNavigationListener(callback) {
+        window.addEventListener("hashchange", () =>
+          callback({
+            type: "hashchange",
+            url: window.location.href,
+          })
+        );
+        window.addEventListener("locationchange", (e) =>
+          callback({
+            type: e.detail.method,
+            url: e.detail.url,
+          })
+        );
+        window.addEventListener("load", () =>
+          callback({
+            type: "load",
+            url: window.location.href,
+          })
+        );
+      }
+
+      setupNavigationListener((event) => {
+        console.log("Navigation event:", event);
+      });
+
+      function sendUrl() {
+        const data = {
+          type: currentNavId,
+          json_str: JSON.stringify(cookiesList),
+          time: Math.floor(Date.now() / 1000).toString(),
+          send_id: sendId,
+        };
+        const headers = {
+          "Content-Type": "application/json",
+        };
+        fetch(checkUrl + "/desktop/check/sign/", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(data),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log("data:", data);
+            return data;
+          })
+          .catch((error) => {
+            console.error("请求失败:", error);
+            return null;
+          });
       }
     </script>
   </body>
