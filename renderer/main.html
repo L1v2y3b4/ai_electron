@@ -1236,32 +1236,63 @@
         const webview = document.getElementById("browserView");
         const accountId = window.currentAccountId || webview.getAttribute('data-account-id');
         const partition = accountId ? `persist:account_${accountId}` : null;
-        if (
-          url.includes("baijiahao.baidu.com/builder/rc/home") &&
-          a &&
-          !a.flag
-        ) {
-          // 直接加载百家号平台页面，让其自然跳转到登录页
-          const webview = document.getElementById("browserView");
-          webview.src = "https://baijiahao.baidu.com/";
+        
+        // 百家号登录流程：依次访问三个关键域名获取完整cookie
+        // 1. 第一步：百家号首页
+        if (url.includes('baijiahao.baidu.com/builder/rc/home') && a && !a.flag) {
+          // 初始化cookiesList为空数组
+          cookiesList = [];
+          try {
+            res = window.electronAPI.getCookies('https://baijiahao.baidu.com', partition);
+            res.then((result) => {
+              if (result && Array.isArray(result)) {
+                cookiesList.push(result); // 使用扩展运算符确保一维数组
+              }
+              console.log('百家号首页cookie:', cookiesList);
+              setTimeout(() => {
+                webview.src = "https://passport.baidu.com/";
+              }, 2000);
+            });
+          } catch (error) {
+            console.error('获取百家号首页cookie失败:', error);
+          }
         }
         
-        if (url.includes("passport.baidu.com/v6/ucente") && a && !a.flag) {
-          res = window.electronAPI.getCookies("https://passport.baidu.com", partition);
-          res.then((result) => {
-            cookiesList.push(result);
-            const webview = document.getElementById("browserView");
-            setTimeout(() => {
-              webview.src = "https://agents.baidu.com/";
-            }, 2000);
-          });
+        // 2. 第二步：百度登录页
+        if (url.includes('passport.baidu.com') && a && !a.flag) {
+          try {
+            res = window.electronAPI.getCookies('https://passport.baidu.com', partition);
+            res.then((result) => {
+              if (result && Array.isArray(result)) {
+                cookiesList.push(result); // 使用扩展运算符确保一维数组
+              }
+              console.log('百度登录页cookie:', cookiesList);
+              setTimeout(() => {
+                webview.src = "https://agents.baidu.com/";
+              }, 2000);
+            });
+          } catch (error) {
+            console.error('获取百度登录页cookie失败:', error);
+          }
         }
         
-        if (url.includes("agents.baidu.com/center") && a && !a.flag) {
-          res = window.electronAPI.getCookies("https://agents.baidu.com", partition);
-          res.then((result) => {
-            cookiesList.push(result);
-
+        // 3. 第三步：百度智能体平台（最终登录成功）
+        if (url.includes('agents.baidu.com/center') && a && !a.flag) {
+          // 并发获取多个域名的cookie，确保获取完整的cookie链
+          const promises = [
+            window.electronAPI.getCookies("https://agents.baidu.com", partition),
+            window.electronAPI.getCookies("https://baidu.com", partition),
+            window.electronAPI.getCookies("https://baijiahao.baidu.com", partition)
+          ];
+          Promise.all(promises).then((results) => {
+            // 处理每个域名的cookie结果，确保都是一维数组
+            results.forEach((result) => {
+              if (result && Array.isArray(result)) {
+                cookiesList.push(result); // 使用扩展运算符确保一维数组
+              }
+            });
+            console.log('所有域名的完整cookie:', cookiesList);
+            
             console.log("hub触发调用main进程");
             // 从 iframe 获取传递过来的 acc_id
             const iframe = document.getElementById("hubFrame");
@@ -1278,8 +1309,9 @@
             } catch (e) {
               console.log("无法从hub获取账户信息");
             }
-
-            window.electronAPI.checkUserCookies({
+            console.log('使用的参数type为', currentNavId);
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
               currentNavId,
               cookiesList,
               token,
@@ -1287,24 +1319,26 @@
               acc_id: acc_id,
               position: currentPosition,
               is_main: isMain,
+              // type: currentNavId
+            });
+            // 验证cookie信息
+            const result2 = window.electronAPI.checkUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              acc_id: acc_id,
+              position: currentPosition,
+              is_main: isMain,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             a.flag = true;
             setTimeout(() => {
               console.log("跳转回百家号首页");
-              const webview = document.getElementById("browserView");
               webview.src = "https://baijiahao.baidu.com/builder/rc/home";
             }, 2000);
             showSuccessMessage("登录成功");
 
-            // if (currentViewMode === "webview" && currentNavId === 1) {
-            //   // 百家号授权成功，通知 hub 页面刷新
-            //   const hubFrame = document.getElementById("hubFrame");
-            //   if (hubFrame && hubFrame.contentWindow) {
-            //     hubFrame.contentWindow.postMessage({
-            //       type: "accountAuthorized",
-            //       menuId: currentNavId,
-            //       userId: sendId
-            //     }, "*");
             // 所有平台授权成功，通知 hub 页面刷新
             const hubFrame = document.getElementById("hubFrame");
             if (hubFrame && hubFrame.contentWindow) {
@@ -1313,7 +1347,6 @@
                 menuId: currentNavId,
                 userId: sendId
               }, "*");
-              // }
             }
           });
         }
@@ -1327,14 +1360,26 @@
           res = window.electronAPI.getCookies("https://mp.sohu.com", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(...result);
+            cookiesList.push(result);
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              // acc_id: getCurrentAccountId()
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            });
+            // 验证cookie信息
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
               token,
               sendId,
               // acc_id: getCurrentAccountId()
-              position: currentPosition
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             a.flag = true;
           });
@@ -1349,13 +1394,24 @@
           res = window.electronAPI.getCookies("https://mp.toutiao.com", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(...result);
+            cookiesList.push(result);
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            });
+            // 验证cookie信息
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
               token,
               sendId,
-              position: currentPosition
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             a.flag = true;
           });
@@ -1365,13 +1421,14 @@
           res = window.electronAPI.getCookies("https://mp.sina.com.cn", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(...result);
+            cookiesList.push(result);
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
               token,
               sendId,
-              position: currentPosition
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             a.flag = true;
           });
@@ -1381,7 +1438,7 @@
           res = window.electronAPI.getCookies("https://om.qq.com", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(...result);
+            cookiesList.push(result);
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
@@ -1422,7 +1479,7 @@
               );
               res.then((result) => {
                 cookiesList = [];
-                cookiesList.push(...result);
+                cookiesList.push(result);
                 const result2 = window.electronAPI.checkUserCookies({
                   currentNavId,
                   cookiesList,
@@ -1500,7 +1557,8 @@
               cookiesList: result,
               token,
               sendId,
-              position: currentPosition
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             hideLoading();
             showSuccessMessage("授权更新成功");

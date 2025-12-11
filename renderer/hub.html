@@ -464,7 +464,7 @@
         9: "card-bg-wenxin",
       };
 
-    window.addEventListener("message", (event) => {
+    window.addEventListener("message", async (event) => {
       console.log("接收到消息", event.data);
       if (event.data.type === "selectMenu") {
         currentMenuId = event.data.menuId;
@@ -479,8 +479,18 @@
             accounts[currentUserData.sendId] = {};
           }
           // 检查用户是否为蓝V套餐用户
-          // showMultipleAccounts =  checkBlueVPackageStatus(currentUserData.sendId);
-        }
+        //   showMultipleAccounts =  checkBlueVPackage(currentUserData.sendId);
+        // }
+            // 安全地访问 electronAPI（兼容 iframe 环境）
+            const electronAPI = window.electronAPI || (window.parent && window.parent.electronAPI);
+            if (electronAPI && typeof electronAPI.checkBlueVPackage === "function") {
+              blue_ensure = await electronAPI.checkBlueVPackage(currentUserData.sendId);
+              showMultipleAccounts = blue_ensure.isBlueVPackage;
+            } else {
+              showMultipleAccounts = false; // 默认非蓝V用户
+            }
+          }
+        console.log("当前用户是否篮V", showMultipleAccounts);
         console.log("选择菜单", currentMenuId, "实际类型", actualType, "导航项数量", navItems.length);
         renderAccounts();
         setTimeout(debouncedUpdateAccountStatus, 100);

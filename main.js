@@ -29,7 +29,8 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 let agent_cookies = [];
 
 // const loginUrl = 'http://ai.zhongshang114.com';
-const loginUrl = 'http://39.96.205.150:19020'
+// const loginUrl = 'http://39.96.205.150:19020'
+const loginUrl = 'http://192.168.0.38:9020'
 // const checkUrl = "http://47.93.80.212:8000/api";
 const checkUrl = "http://60.205.188.121:8000/api"
 // const mainUrl = "http://192.168.0.35:8000/api"
@@ -473,18 +474,28 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
     'token': token
   };
 
+
+  const data = {
+    'type': currentNavId,
+    'authData': JSON.stringify(cookiesList),
+    'status': 1,
+    'saveType': 1,
+    'customerId': sendId,
+    'isMain': isMain,
+    'position': position,
+  };
+
+  console.log("使用的data", data);
   try {
-    const checkResponse = await axios.get(
+    const checkResponse = await axios.post(
       loginUrl + '/content/customer/account/saveAuth',
+      data,
       {
-        headers,
-        params: {
-          type: currentNavId,
-          customerId: sendId
-        }
+        headers
       }
     );
-    
+    console.log('======checkResponse====save_user_cookies', checkResponse.data);
+    console.log('使用的参数为', currentNavId, sendId, position);
     const existingAccounts = checkResponse.data;
     let existingAccount = null;
     
@@ -505,12 +516,12 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
       }
     }
     
-    let data = {
-      'type': currentNavId,
-      'authData': JSON.stringify(cookiesList),
-      'status': 1,
-      'customerId': sendId,
-    };
+    // const data = {
+    //   'type': currentNavId,
+    //   'authData': JSON.stringify(cookiesList),
+    //   'status': 1,
+    //   'customerId': sendId,
+    // };
 
     if (currentNavId == 1 || currentNavId == 9){
       data.is_main = isMain;
@@ -819,6 +830,7 @@ ipcMain.handle('check-bluev-package', async (event, userId) => {
       // 根据接口返回的数据判断是否为蓝V套餐用户
       // 假设返回的数据中包含 isBlueVPackage 或类似字段
       const isBlueV = response.data.data === true || response.data.data === 1 || response.data.data?.isBlueVPackage === true;
+      console.log('用户是否为蓝V套餐用户:', isBlueV);
       return {
         success: true,
         isBlueVPackage: isBlueV
