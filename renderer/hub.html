@@ -1366,6 +1366,11 @@
           .unbindAccount({
             accountId: realAccountId,
             userId: currentUserData.sendId,
+            currentNavId: currentMenuId,
+            type: currentMenuId,
+            token: currentUserData.token,
+            isMain: foundAccount.isMain || foundAccount.serverData?.is_main || 0,
+            position: foundAccount.position || 0
           })
           .then((result) => {
             // 移除加载状态

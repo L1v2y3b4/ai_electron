@@ -1279,19 +1279,19 @@
         // 3. 第三步：百度智能体平台（最终登录成功）
         if (url.includes('agents.baidu.com/center') && a && !a.flag) {
           // 并发获取多个域名的cookie，确保获取完整的cookie链
-          const promises = [
-            window.electronAPI.getCookies("https://agents.baidu.com", partition),
-            window.electronAPI.getCookies("https://baidu.com", partition),
-            window.electronAPI.getCookies("https://baijiahao.baidu.com", partition)
-          ];
-          Promise.all(promises).then((results) => {
-            // 处理每个域名的cookie结果，确保都是一维数组
-            results.forEach((result) => {
-              if (result && Array.isArray(result)) {
-                cookiesList.push(result); // 使用扩展运算符确保一维数组
-              }
-            });
-            console.log('所有域名的完整cookie:', cookiesList);
+          // const promises = [
+          //   window.electronAPI.getCookies("https://agents.baidu.com", partition),
+          //   window.electronAPI.getCookies("https://baidu.com", partition),
+          //   window.electronAPI.getCookies("https://baijiahao.baidu.com", partition)
+          // ];
+          // Promise.all(promises).then((results) => {
+          //   // 处理每个域名的cookie结果，确保都是一维数组
+          //   results.forEach((result) => {
+          //     if (result && Array.isArray(result)) {
+          //       cookiesList.push(result); // 使用扩展运算符确保一维数组
+          //     }
+          //   });
+          //   console.log('所有域名的完整cookie:', cookiesList);
             
             console.log("hub触发调用main进程");
             // 从 iframe 获取传递过来的 acc_id
@@ -1316,10 +1316,8 @@
               cookiesList,
               token,
               sendId,
-              acc_id: acc_id,
               position: currentPosition,
-              is_main: isMain,
-              // type: currentNavId
+              isMain: isMain
             });
             // 验证cookie信息
             const result2 = window.electronAPI.checkUserCookies({
@@ -1348,7 +1346,7 @@
                 userId: sendId
               }, "*");
             }
-          });
+          // });
         }
         if (
           url.includes(
@@ -1422,6 +1420,16 @@
           res.then((result) => {
             cookiesList = [];
             cookiesList.push(result);
+
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            });
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
@@ -1439,16 +1447,79 @@
           res.then((result) => {
             cookiesList = [];
             cookiesList.push(result);
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            });
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
               token,
               sendId,
-              position: currentPosition
+              position: currentPosition,
+              isMain: window.currentAccountIsMain || 0
             });
+            
+            // 使用Promise.all跟踪结果
+            Promise.all([result1, result2]).then((results) => {
+              console.log('saveUserCookies结果:', results[0]);
+              console.log('checkUserCookies结果:', results[1]);
+            });
+            
+            a.flag = true;
             a.flag = true;
           });
           showSuccessMessage("登录成功");
+        }
+        // 网易平台登录成功处理
+        if (url.includes("https://mp.163.com/login.html#/") && a && !a.flag
+        ) {
+          res = window.electronAPI.getCookies("https://mp.163.com", partition);
+          console.log("进入到网易平台登录成功处理");
+          res.then((result) => {
+            cookiesList = [];
+            console.log("获取到的cookies:", result);
+            if (result && Array.isArray(result)) {
+              cookiesList.push(result); // 使用spread运算符扁平化数组
+            }
+            
+            cookiesList.push(result);
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            });
+            const result2 = window.electronAPI.checkUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              position: currentPosition,
+              isMain: window.currentAccountIsMain || 0
+            });
+            
+            a.flag = true;
+            showSuccessMessage("登录成功");
+            
+            // 通知 hub 页面刷新账号状态
+            const hubFrame = document.getElementById("hubFrame");
+            if (hubFrame && hubFrame.contentWindow) {
+              hubFrame.contentWindow.postMessage({
+                type: "accountAuthorized",
+                menuId: currentNavId,
+                userId: sendId
+              }, "*");
+            }
+          });
         }
         if (
           url.includes(
@@ -1457,40 +1528,64 @@
           a &&
           !a.flag
         ) {
-          const data = {
-            type: currentNavId,
-            json_str: sendId,
-            time: Math.floor(Date.now() / 1000).toString(),
-            send_id: sendId,
-          };
-          const headers = {
-            "Content-Type": "application/json",
-          };
-          fetch("http://zs.open.chuangmaedu.com/openPlatform/checkAuth", {
-            method: "POST",
-            body: JSON.stringify(data),
-            headers: headers,
-          })
-            .then((res) => res.json())
-            .then((resultData) => {
-              res = window.electronAPI.getCookies(
-                "http://zs.open.chuangmaedu.com",
-                partition
-              );
-              res.then((result) => {
-                cookiesList = [];
-                cookiesList.push(result);
-                const result2 = window.electronAPI.checkUserCookies({
-                  currentNavId,
-                  cookiesList,
-                  token,
-                  sendId,
-                  position: currentPosition
-                });
-                a.flag = true;
-              });
-              showSuccessMessage("登录成功");
+          res = window.electronAPI.getCookies(
+            "http://zs.open.chuangmaedu.com",
+            partition
+          );
+          res.then((result) => {
+            cookiesList = [];
+            cookiesList.push(result);
+            
+            // 从 iframe 获取传递过来的 acc_id 等信息
+            const iframe = document.getElementById("hubFrame");
+            let acc_id = null;
+            let position = 1;
+            let isMain = 0;
+            try {
+              const hubContent = iframe.contentWindow;
+              if (hubContent && hubContent.currentAccountId) acc_id = hubContent.currentAccountId;
+              if (hubContent && hubContent.currentAccount) {
+                position = hubContent.currentAccount.position || 1;
+                isMain = hubContent.currentAccount.isMain || 0;
+              }
+            } catch (e) {
+              console.log("无法从hub获取账户信息");
+            }
+            
+            // 保存cookie信息
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              acc_id: acc_id,
+              position: position,
+              is_main: isMain
             });
+            
+            // 验证cookie信息
+            const result2 = window.electronAPI.checkUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              acc_id: acc_id,
+              position: position,
+              is_main: isMain
+            });
+            a.flag = true;
+            showSuccessMessage("登录成功");
+            
+            // 通知 hub 页面刷新账号状态
+            const hubFrame = document.getElementById("hubFrame");
+            if (hubFrame && hubFrame.contentWindow) {
+              hubFrame.contentWindow.postMessage({
+                type: "accountAuthorized",
+                menuId: currentNavId,
+                userId: sendId
+              }, "*");
+            }
+          });
         }
       }
 

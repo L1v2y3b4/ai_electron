@@ -467,13 +467,12 @@ ipcMain.handle("migrate-cookies", async (event, { sourcePartition, targetPartiti
   }
 });
 
-// 5. save_user_cookies (保持原样)
+// 5. save_user_cookies (修复逻辑错误)
 ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, position, isMain = 0 }) => {
   const headers = {
     'Content-Type': 'application/json',
     'token': token
   };
-
 
   const data = {
     'type': currentNavId,
@@ -487,19 +486,26 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
 
   console.log("使用的data", data);
   try {
-    const checkResponse = await axios.post(
+    // 1. 先检查是否存在相同位置的账户
+    const checkResponse = await axios.get(
       loginUrl + '/content/customer/account/saveAuth',
-      data,
       {
-        headers
+        headers,
+        params: {
+          type: currentNavId,
+          customerId: sendId,
+          position: position
+        }
       }
     );
+    
     console.log('======checkResponse====save_user_cookies', checkResponse.data);
     console.log('使用的参数为', currentNavId, sendId, position);
+    
     const existingAccounts = checkResponse.data;
     let existingAccount = null;
     
-    if (existingAccounts && existingAccounts.length > 0) {
+    if (existingAccounts && Array.isArray(existingAccounts) && existingAccounts.length > 0) {
       existingAccount = existingAccounts.find(account => account.position === position);
     }
     
@@ -511,36 +517,24 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
           console.log("Cookie数据未变化，跳过重复保存");
           return { success: true, message: "数据未变化" };
         }
+        // 如果存在相同位置的账户，添加id字段进行更新
+        data.id = existingAccount.id;
       } catch (e) {
         console.log("无法比较cookie数据，继续保存");
       }
     }
     
-    // const data = {
-    //   'type': currentNavId,
-    //   'authData': JSON.stringify(cookiesList),
-    //   'status': 1,
-    //   'customerId': sendId,
-    // };
-
-    if (currentNavId == 1 || currentNavId == 9){
-      data.is_main = isMain;
-      data.position = position;
-    }
-    
-    if (existingAccount) {
-      data.id = existingAccount.id;
-    }
-    
-    const response = await axios.post(
+    // 2. 执行保存/更新操作
+    const saveResponse = await axios.post(
       loginUrl + '/content/customer/account/saveAuth',
       data,
-      { headers }
+      {
+        headers
+      }
     );
     
-    const result = response.data;
-    console.log('======result====save_user_cookies', result);
-    return result;
+    console.log('======saveResponse====save_user_cookies', saveResponse.data);
+    return saveResponse.data;
   } catch (error) {
     console.error('保存信息错误:', error);
     return { success: false, message: error.message };
@@ -957,10 +951,11 @@ ipcMain.handle('getMenuIsAuth', async (event, data) => {
   return {};
 });
 
-ipcMain.handle('unbind-account', async (event, { accountId, userId }) => {
+ipcMain.handle('unbind-account', async (event, { accountId, userId, currentNavId, type, token, isMain, position }) => {
   try {
-    console.log('解绑账号参数:', accountId, userId);
+    console.log('解绑账号参数:', accountId, userId, currentNavId, type, isMain, position);
     
+    // 1. 调用原有的解绑接口
     const response = await axios.post(
       `${checkUrl}/auth/unbind`,
       {},
@@ -976,6 +971,34 @@ ipcMain.handle('unbind-account', async (event, { accountId, userId }) => {
     );
     
     console.log('解绑账号响应:', response.data);
+    
+    // 2. 调用Java后端saveAuth接口，将status设置为2（解绑状态）
+    if (response.data.code === 200) {
+      // 准备解绑数据
+      const unbindData = {
+        'type': currentNavId,
+        'authData': 1,
+        'status': 3,
+        'saveType': 1,
+        'customerId': userId,
+        'isMain': isMain,
+        'position': position,
+      };
+      
+      // 调用Java后端接口
+      const javaResponse = await axios.post(
+        loginUrl + '/content/customer/account/saveAuth',
+        unbindData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'token': token
+          }
+        }
+      );
+      
+      console.log('Java后端解绑响应:', javaResponse.data);
+    }
     
     if (response.data.code === 200) {
       return {
