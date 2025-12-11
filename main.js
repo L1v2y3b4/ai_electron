@@ -28,11 +28,11 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 // 智能体的cookie
 let agent_cookies = [];
 
-// const loginUrl = 'http://ai.zhongshang114.com';
-const loginUrl = 'http://39.96.205.150:19020'
+const loginUrl = 'http://ai.zhongshang114.com';
+// const loginUrl = 'http://39.96.205.150:19020'
 // const loginUrl = 'http://192.168.0.38:9020'
-// const checkUrl = "http://47.93.80.212:8000/api";
-const checkUrl = "http://60.205.188.121:8000/api"
+const checkUrl = "http://47.93.80.212:8000/api";
+// const checkUrl = "http://60.205.188.121:8000/api"
 // const mainUrl = "http://192.168.0.35:8000/api"
 
 // 请求去重机制
