@@ -1137,10 +1137,11 @@
         window.electronAPI ||
         (window.parent && window.parent.electronAPI);
 
-      const uniqueAccountId =
-        account.serverData && account.serverData.acc_id
-          ? `acc_${account.serverData.acc_id}_pos_${account.position}`
-          : `pending_${account.menuId}_${account.position}`;
+      // const uniqueAccountId =
+      //   account.serverData && account.serverData.acc_id
+      //     ? `acc_${account.serverData.acc_id}_pos_${account.position}`
+      //     : `pending_${account.menuId}_${account.position}`;
+      const uniqueAccountId = `acc_${currentUserData.sendId}_${account.menuId}_${account.position}`;
 
       const accountIndex =
         account.position ||
@@ -1377,9 +1378,11 @@
                     menuItem.name + "账号" + foundAccount.position;
                 }
                 // 生成唯一的accountId用于清除cookie
-                const uniqueAccountId = realAccountId
-                  ? `acc_${realAccountId}_pos_${foundAccount.position}`
-                  : `pending_${currentMenuId}_${foundAccount.position}`;
+                // const uniqueAccountId = realAccountId
+                //   ? `acc_${realAccountId}_pos_${foundAccount.position}`
+                //   : `pending_${currentMenuId}_${foundAccount.position}`;
+                // 生成唯一的accountId用于清除cookie，使用与创建时相同的固定格式
+                const uniqueAccountId = `acc_${currentUserData.sendId}_${currentMenuId}_${foundAccount.position}`;
 
                 // 清除该账号的cookie
                 if (

@@ -475,7 +475,7 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
 
   try {
     const checkResponse = await axios.get(
-      loginUrl + '/content/customer/account/list',
+      loginUrl + '/content/customer/account/saveAuth',
       {
         headers,
         params: {
@@ -542,7 +542,7 @@ ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, 
 
   try {
     const checkResponse = await axios.get(
-      loginUrl + '/content/customer/account/list',
+      loginUrl + '/content/customer/account/saveAuth',
       {
         headers: { 'token': token },
         params: {
