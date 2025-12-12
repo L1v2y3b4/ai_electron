@@ -32,6 +32,7 @@ const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://39.96.205.150:19020'
 // const loginUrl = 'http://192.168.0.38:9020'
 const checkUrl = "http://47.93.80.212:8000/api";
+// const checkUrl = "http://192.168.0.99:8000/api";
 // const checkUrl = "http://60.205.188.121:8000/api"
 // const checkUrl = "http://192.168.0.35:8000/api"
 
@@ -691,14 +692,13 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
 
   try {
     // 1. 查询已有数据（注意：这里只是为了查询，实际保存通过POST请求完成）
-    const checkResponse = await axios.get(
+    const checkResponse = await axios.post(
       loginUrl + '/content/customer/account/saveAuth',
       {
         headers: { 'token': token },
         params: {
           type: currentNavId,
-          customerId: sendId,
-          position: position
+          customerId: sendId
         }
       }
     );
@@ -706,14 +706,22 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
     const existingAccounts = checkResponse.data;
     let existingAccount = null;
     
+    // 优先检查相同acc_id的账户，避免重复ID错误
     if (existingAccounts && existingAccounts.length > 0) {
-      existingAccount = existingAccounts.find(account => account.position === position);
+      // 先查找相同acc_id的账户
+      if (acc_id) {
+        existingAccount = existingAccounts.find(account => account.acc_id === acc_id);
+      }
+      // 如果没有相同acc_id的账户，再查找相同位置的账户
+      if (!existingAccount) {
+        existingAccount = existingAccounts.find(account => account.position === position);
+      }
     }
     
     // 构建保存的数据
     data = {
       'type': currentNavId,
-      'json_str': JSON.stringify(cookiesToSave),
+      'authData': JSON.stringify(cookiesToSave),
       'time': Math.floor(Date.now() / 1000).toString(),
       'send_id': sendId,
       'acc_id': acc_id,
@@ -721,22 +729,25 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
       'is_main': isMain
     };
     
-    // 检查是否存在相同位置的账户，若存在且cookie相同则跳过保存
-    if (existingAccount && existingAccount.json_str) {
+    // 检查是否存在相同账户，若存在则更新，否则插入
+    if (existingAccount) {
+      console.log('存在相同账户，执行更新操作:', existingAccount);
+      // 添加id字段进行更新
+      data.id = existingAccount.id;
+      
+      // 检查cookie是否相同，如果相同则跳过保存
       try {
         const existingCookies = JSON.parse(existingAccount.json_str);
         const newCookies = JSON.parse(JSON.stringify(cookiesToSave));
         if (JSON.stringify(existingCookies) === JSON.stringify(newCookies)) {
-          console.log('相同位置的账户cookie数据相同，跳过保存');
+          console.log('账户cookie数据相同，跳过保存');
           return { success: true, message: '数据相同，跳过保存' };
-        } else {
-          console.log('相同位置的账户cookie数据不同，更新保存');
-          // 如果存在相同位置的账户，添加id字段进行更新
-          data.id = existingAccount.id;
         }
       } catch (e) {
-        console.log("无法比较cookie数据，继续保存");
+        console.log("无法比较cookie数据，继续更新");
       }
+    } else {
+      console.log('不存在相同账户，执行插入操作');
     }
     
     // 2. 执行保存/更新操作
@@ -761,29 +772,29 @@ ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, 
   const cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
 
   try {
-    const checkResponse = await axios.get(
-      loginUrl + '/content/customer/account/saveAuth',
-      {
-        headers: { 'token': token },
-        params: {
-          type: currentNavId,
-          customerId: sendId,
-          position: position
-        }
-      }
-    );
+    // const checkResponse = await axios.post(
+    //   loginUrl + '/content/customer/account/saveAuth',
+    //   {
+    //     headers: { 'token': token },
+    //     params: {
+    //       type: currentNavId,
+    //       customerId: sendId,
+    //       position: position
+    //     }
+    //   }
+    // );
     
-    const existingAccounts = checkResponse.data;
-    let existingAccount = null;
+    // const existingAccounts = checkResponse.data;
+    // let existingAccount = null;
     
-    if (existingAccounts && existingAccounts.length > 0) {
-      existingAccount = existingAccounts.find(account => account.position === position);
-    }
+    // if (existingAccounts && existingAccounts.length > 0) {
+    //   existingAccount = existingAccounts.find(account => account.position === position);
+    // }
     
-    if (existingAccount && existingAccount.acc_id && acc_id && existingAccount.acc_id === acc_id) {
-      console.log("账号数据已存在，跳过重复创建");
-      return { success: true, message: "账号已存在" };
-    }
+    // if (existingAccount && existingAccount.acc_id && acc_id && existingAccount.acc_id === acc_id) {
+    //   console.log("账号数据已存在，跳过重复创建");
+    //   return { success: true, message: "账号已存在" };
+    // }
 
     const data = {
       'type': currentNavId,
@@ -797,10 +808,10 @@ ipcMain.handle('check_user_cookies', async (event, { currentNavId, cookiesList, 
     
     const headers = { 
       'Content-Type': 'application/json',
-      'token': token
+      // 'token': token
     };
 
-    const response = await axios.post(`${checkUrl}/desktop/check/sign/`, JSON.stringify(data), { headers });
+    const response = await axios.post( checkUrl+ '/desktop/check/sign/', JSON.stringify(data), { headers });
     return response.data;
   } catch (error) {
     console.error('请求失败:', error);
@@ -911,9 +922,9 @@ ipcMain.handle('get-account-status', async (event, { userId, type }) => {
       `${checkUrl}/auth/accounts?user_id=${userId}&type_f=${type}`
     );
     
-    console.log(response.data,'账号状态信息++++++++++++++')
+    // console.log(response.data,'账号状态信息++++++++++++++')
     if (response.data.code === 200) {
-      console.log(response.data.data,'账号状态信息==================')
+      // console.log(response.data.data,'账号状态信息==================')
       return {
         success: true,
         accounts: response.data.data
