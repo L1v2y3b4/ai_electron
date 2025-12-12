@@ -1766,12 +1766,30 @@
         }
         console.log("当前账号位置:", currentPosition);
         showLoading();
+        
         const webview = document.getElementById("browserView");
         const currentUrl = webview.getURL();
-        let domain = "";
+        
+        // 获取当前导航项，重置flag以便重新执行授权流程
+        const a = navItems.find((item) => item.id === currentNavId);
+        if (a) {
+          a.flag = false; // 重置flag，允许重新执行授权流程
+          console.log("已重置导航项flag为false:", a);
+        }
+        
+        // 处理百家号特殊授权流程，需要跳转三个页面
         if (currentUrl.includes("baijiahao.baidu.com")) {
-          domain = "https://baijiahao.baidu.com";
-        } else if (currentUrl.includes("mp.sohu.com")) {
+          // 直接跳转到百度登录页，启动完整的三页面授权流程
+          console.log("启动百家号完整授权流程");
+          webview.src = "https://passport.baidu.com/";
+          hideLoading();
+          showSuccessMessage("已启动授权流程，请等待页面跳转完成");
+          return;
+        } 
+        
+        // 其他平台保持原有逻辑，直接获取当前页面cookie
+        let domain = "";
+        if (currentUrl.includes("mp.sohu.com")) {
           domain = "https://mp.sohu.com";
         } else if (currentUrl.includes("mp.toutiao.com")) {
           domain = "https://mp.toutiao.com";
@@ -1788,10 +1806,12 @@
           showSuccessMessage("当前页面不支持更新授权");
           return;
         }
+        
         // 获取当前账号信息，用于构建partition
         const accountId = window.currentAccountId || webview.getAttribute('data-account-id');
         const partition = accountId ? `persist:account_${accountId}` : null;
         console.log("使用的partition:", partition, "accountId:", accountId);
+        
         window.electronAPI
           .getCookies(domain, partition)
           .then((result) => {
