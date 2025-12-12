@@ -33,7 +33,7 @@ const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://192.168.0.38:9020'
 const checkUrl = "http://47.93.80.212:8000/api";
 // const checkUrl = "http://60.205.188.121:8000/api"
-// const mainUrl = "http://192.168.0.35:8000/api"
+// const checkUrl = "http://192.168.0.35:8000/api"
 
 // 请求去重机制
 const requestTracker = new Map();
@@ -340,27 +340,238 @@ ipcMain.handle('get-cookies', async (event, domain, partition = null) => {
   }
 });
 
-// 2. 修复 set-cookies (原版本)
-ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain }) => {
-  const ses = session.fromPartition('persist:zhongshang');
+// 2. 修复 set-cookies (增强版)
+ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partition }) => {
+  // 使用传入的partition，如果没有则使用默认值
+  const ses = session.fromPartition(partition || 'persist:zhongshang');
+  let successCount = 0;
+  let failedCookies = [];
+  
+  // 定义关键cookie列表，优先确保这些cookie能够被注入
+  const keyCookieNames = ['BDUSS', 'BDUSS_BFESS', 'bjhStoken', 'BAIDUID', 'BAIDUID_BFESS'];
+  
+  console.log(`开始处理cookie注入，总数量: ${cookies.length}, partition: ${partition}`);
+  
+  // 1. 首先处理关键cookie，确保它们被优先注入
+  const keyCookies = cookies.filter(c => keyCookieNames.includes(c.name));
+  const normalCookies = cookies.filter(c => !keyCookieNames.includes(c.name));
+  
+  // 合并为：关键cookie在前，普通cookie在后
+  const prioritizedCookies = [...keyCookies, ...normalCookies];
+  
   try {
-    for (const c of cookies) {
-      await ses.cookies.set({
-        url: targetUrl,
-        name: c.name,
-        value: c.value,
-        domain: c.domain || domain,
-        path: c.path || "/",
-        secure: c.secure ?? true,
-        httpOnly: c.httpOnly ?? false,
-        sameSite: "no_restriction",
-        expirationDate: (Date.now() / 1000) + 60 * 60 * 24 * 30,
-      });
+    for (const c of prioritizedCookies) {
+      try {
+        // 确保cookie对象有效
+        if (!c.name || !c.value) {
+          failedCookies.push({ name: c.name, reason: '缺少name或value' });
+          continue;
+        }
+        
+        // 构建cookie选项 - 首先获取cookie自身的domain
+        let cookieDomain = c.domain;
+        let cookieUrl = targetUrl;
+        
+        // 详细日志：记录原始cookie信息
+        console.log(`原始cookie信息: ${c.name}, domain: ${c.domain}, path: ${c.path}, secure: ${c.secure}, httpOnly: ${c.httpOnly}, sameSite: ${c.sameSite}`);
+        
+        // 特别处理关键cookie，确保使用正确的domain和url
+        if (keyCookieNames.includes(c.name)) {
+          if (c.name === 'bjhStoken') {
+            // bjhStoken是baijiahao.baidu.com的cookie
+            cookieDomain = '.baijiahao.baidu.com';
+            cookieUrl = 'https://baijiahao.baidu.com';
+          } else if (c.name.includes('BDUSS')) {
+            // BDUSS是.baidu.com的cookie
+            cookieDomain = '.baidu.com';
+            cookieUrl = 'https://baidu.com';
+          } else if (c.name.includes('BAIDUID')) {
+            // BAIDUID是.baidu.com的cookie
+            cookieDomain = '.baidu.com';
+            cookieUrl = 'https://baidu.com';
+          }
+        } else {
+          // 普通cookie处理
+          if (cookieDomain) {
+            // 确保domain格式正确，以点开头
+            cookieDomain = cookieDomain.startsWith('.') ? cookieDomain : '.' + cookieDomain;
+            // 使用http或https，不考虑secure属性，确保兼容性
+            cookieUrl = 'https://' + cookieDomain.replace(/^\./, '');
+          } else {
+            // 如果cookie没有domain，使用默认的baidu.com或baijiahao.baidu.com
+            if (c.name.includes('baijiahao') || c.name.includes('bjh')) {
+              cookieDomain = '.baijiahao.baidu.com';
+              cookieUrl = 'https://baijiahao.baidu.com';
+            } else {
+              cookieDomain = '.baidu.com';
+              cookieUrl = 'https://baidu.com';
+            }
+          }
+        }
+        
+        // 为每个cookie创建多种注入尝试，确保成功
+        const injectionAttempts = [
+          // 1. 原始配置
+          {
+            url: cookieUrl,
+            name: String(c.name),
+            value: String(c.value),
+            domain: cookieDomain,
+            path: c.path || "/",
+            secure: c.secure !== undefined ? c.secure : false,
+            httpOnly: c.httpOnly !== undefined ? c.httpOnly : false,
+            sameSite: c.sameSite || "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          },
+          // 2. 强制使用false作为secure属性
+          {
+            url: cookieUrl,
+            name: String(c.name),
+            value: String(c.value),
+            domain: cookieDomain,
+            path: c.path || "/",
+            secure: false,
+            httpOnly: c.httpOnly !== undefined ? c.httpOnly : false,
+            sameSite: c.sameSite || "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          },
+          // 3. 强制使用no_restriction作为sameSite属性
+          {
+            url: cookieUrl,
+            name: String(c.name),
+            value: String(c.value),
+            domain: cookieDomain,
+            path: c.path || "/",
+            secure: c.secure !== undefined ? c.secure : false,
+            httpOnly: c.httpOnly !== undefined ? c.httpOnly : false,
+            sameSite: "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          },
+          // 4. 同时强制使用false作为secure属性和no_restriction作为sameSite属性
+          {
+            url: cookieUrl,
+            name: String(c.name),
+            value: String(c.value),
+            domain: cookieDomain,
+            path: c.path || "/",
+            secure: false,
+            httpOnly: c.httpOnly !== undefined ? c.httpOnly : false,
+            sameSite: "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          },
+          // 5. 强制使用httpOnly: false
+          {
+            url: cookieUrl,
+            name: String(c.name),
+            value: String(c.value),
+            domain: cookieDomain,
+            path: c.path || "/",
+            secure: false,
+            httpOnly: false,
+            sameSite: "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          }
+        ];
+        
+        // 6. 对于所有cookie，添加额外的尝试，分别使用baidu.com和baijiahao.baidu.com
+        // 这确保即使cookie的domain信息不准确，也能被正确注入
+        injectionAttempts.push(
+          {
+            url: 'https://baijiahao.baidu.com',
+            name: String(c.name),
+            value: String(c.value),
+            domain: '.baijiahao.baidu.com',
+            path: '/',
+            secure: false,
+            httpOnly: false,
+            sameSite: "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          },
+          {
+            url: 'https://baidu.com',
+            name: String(c.name),
+            value: String(c.value),
+            domain: '.baidu.com',
+            path: '/',
+            secure: false,
+            httpOnly: false,
+            sameSite: "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          },
+          {
+            url: 'https://baijiahao.baidu.com/builder/rc/home',
+            name: String(c.name),
+            value: String(c.value),
+            domain: '.baijiahao.baidu.com',
+            path: '/',
+            secure: false,
+            httpOnly: false,
+            sameSite: "no_restriction",
+            expirationDate: !c.session && c.expirationDate ? Number(c.expirationDate) : undefined
+          }
+        );
+        
+        // 尝试多种配置，直到成功或所有尝试都失败
+        let injectionSuccess = false;
+        for (let i = 0; i < injectionAttempts.length; i++) {
+          const attempt = injectionAttempts[i];
+          
+          // 详细日志：记录每个cookie的注入尝试，关键cookie用特殊标记
+          const isKeyCookie = keyCookieNames.includes(c.name) ? "[关键] " : "";
+          console.log(`${isKeyCookie}尝试注入cookie: ${c.name}, 尝试${i+1}, domain: ${attempt.domain}, url: ${attempt.url}, secure: ${attempt.secure}, sameSite: ${attempt.sameSite}`);
+          
+          try {
+            await ses.cookies.set(attempt);
+            successCount++;
+            console.log(`${isKeyCookie}成功注入cookie: ${c.name}, 尝试${i+1}成功`);
+            injectionSuccess = true;
+            break; // 成功后跳出循环
+          } catch (attemptErr) {
+            console.log(`${isKeyCookie}注入cookie失败: ${c.name}, 尝试${i+1}失败, 原因: ${attemptErr.message}`);
+          }
+        }
+        
+        if (!injectionSuccess) {
+          // 所有尝试都失败
+          const errorDetails = {
+            name: c.name,
+            domain: c.domain,
+            reason: "所有注入尝试失败",
+            isKeyCookie: keyCookieNames.includes(c.name)
+          };
+          failedCookies.push(errorDetails);
+          console.error(`[所有尝试失败] 注入cookie失败: ${c.name}`);
+        }
+      } catch (error) {
+        const errorDetails = {
+          name: c.name,
+          domain: c.domain,
+          reason: error.message,
+          isKeyCookie: keyCookieNames.includes(c.name)
+        };
+        failedCookies.push(errorDetails);
+        console.error(`处理cookie时出错: ${c.name}`, error);
+      }
     }
-    return { ok: true };
+    
+    console.log(`成功注入 ${successCount} 个cookie，失败 ${failedCookies.length} 个`);
+    
+    // 检查关键cookie注入情况
+    const keyCookieResults = keyCookieNames.map(name => {
+      const isSuccess = prioritizedCookies.some(c => c.name === name) && 
+                       !failedCookies.some(f => f.name === name);
+      return { name, isSuccess };
+    });
+    console.log('关键cookie注入结果:', keyCookieResults);
+    
+    if (failedCookies.length > 0) {
+      console.log('失败的cookie详情:', failedCookies);
+    }
+    
+    return { ok: true, successCount, failedCount: failedCookies.length, failedCookies, keyCookieResults };
   } catch (err) {
     console.error("cookie set failed:", err);
-    return { ok: false, error: err };
+    return { ok: false, error: err.message, successCount, failedCount: failedCookies.length };
   }
 });
 
@@ -467,30 +678,23 @@ ipcMain.handle("migrate-cookies", async (event, { sourcePartition, targetPartiti
   }
 });
 
-// 5. save_user_cookies (修复逻辑错误)
-ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, position, isMain = 0 }) => {
+// 5. save_user_cookies (修复cookies保存逻辑)
+ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, acc_id, position, isMain }) => {
+  // 1. 处理数据格式
+  let data = {};
+  let cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
+  
   const headers = {
     'Content-Type': 'application/json',
     'token': token
   };
 
-  const data = {
-    'type': currentNavId,
-    'authData': JSON.stringify(cookiesList),
-    'status': 1,
-    'saveType': 1,
-    'customerId': sendId,
-    'isMain': isMain,
-    'position': position,
-  };
-
-  console.log("使用的data", data);
   try {
-    // 1. 先检查是否存在相同位置的账户
+    // 1. 查询已有数据（注意：这里只是为了查询，实际保存通过POST请求完成）
     const checkResponse = await axios.get(
       loginUrl + '/content/customer/account/saveAuth',
       {
-        headers,
+        headers: { 'token': token },
         params: {
           type: currentNavId,
           customerId: sendId,
@@ -499,26 +703,37 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
       }
     );
     
-    console.log('======checkResponse====save_user_cookies', checkResponse.data);
-    console.log('使用的参数为', currentNavId, sendId, position);
-    
     const existingAccounts = checkResponse.data;
     let existingAccount = null;
     
-    if (existingAccounts && Array.isArray(existingAccounts) && existingAccounts.length > 0) {
+    if (existingAccounts && existingAccounts.length > 0) {
       existingAccount = existingAccounts.find(account => account.position === position);
     }
     
-    if (existingAccount) {
+    // 构建保存的数据
+    data = {
+      'type': currentNavId,
+      'json_str': JSON.stringify(cookiesToSave),
+      'time': Math.floor(Date.now() / 1000).toString(),
+      'send_id': sendId,
+      'acc_id': acc_id,
+      'position': position,
+      'is_main': isMain
+    };
+    
+    // 检查是否存在相同位置的账户，若存在且cookie相同则跳过保存
+    if (existingAccount && existingAccount.json_str) {
       try {
-        const existingCookies = JSON.parse(existingAccount.authData);
-        const newCookies = cookiesList;
+        const existingCookies = JSON.parse(existingAccount.json_str);
+        const newCookies = JSON.parse(JSON.stringify(cookiesToSave));
         if (JSON.stringify(existingCookies) === JSON.stringify(newCookies)) {
-          console.log("Cookie数据未变化，跳过重复保存");
-          return { success: true, message: "数据未变化" };
+          console.log('相同位置的账户cookie数据相同，跳过保存');
+          return { success: true, message: '数据相同，跳过保存' };
+        } else {
+          console.log('相同位置的账户cookie数据不同，更新保存');
+          // 如果存在相同位置的账户，添加id字段进行更新
+          data.id = existingAccount.id;
         }
-        // 如果存在相同位置的账户，添加id字段进行更新
-        data.id = existingAccount.id;
       } catch (e) {
         console.log("无法比较cookie数据，继续保存");
       }
@@ -650,6 +865,41 @@ ipcMain.handle("save-account-cookies", async (event, { userId, type, position, c
     const saveRequestId = `save_${userId}_${type}_${position || 0}_${Date.now()}`;
     setRequestStatus(saveRequestId, 'error');
     return { success: false, error: error.message };
+  }
+});
+
+// 8. 新增 get-account-cookies，用于获取已保存的cookies
+ipcMain.handle("get-account-cookies", async (event, { userId, type, position, acc_id }) => {
+  try {
+    // 从服务器获取已保存的cookies
+    const response = await axios.get(`${checkUrl}/desktop/check/getAccountCookies/`, {
+      params: {
+        user_id: userId,
+        type: type,
+        position: position,
+        acc_id: acc_id
+      }
+    });
+    
+    if (response.data && response.data.success && response.data.data) {
+      const cookiesStr = response.data.data;
+      try {
+        const parsedCookies = JSON.parse(cookiesStr);
+        // 确保返回的是一维数组
+        if (Array.isArray(parsedCookies) && parsedCookies.length > 0 && Array.isArray(parsedCookies[0])) {
+          return parsedCookies[0];
+        } else if (Array.isArray(parsedCookies)) {
+          return parsedCookies;
+        }
+      } catch (parseError) {
+        console.error('解析Cookie字符串失败:', parseError);
+        return [];
+      }
+    }
+    return [];
+  } catch (error) {
+    console.error("获取账号Cookie失败:", error);
+    return [];
   }
 });
 

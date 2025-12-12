@@ -1113,8 +1113,10 @@
           const isMain = event.data.isMain || 0;
           const position = event.data.position || 1;
 
-          // 将position参数保存到window对象中，以便在checkLoginStatus函数中使用
+          // 将position和isMain参数保存到window对象中，以便在checkLoginStatus函数中使用
           window.currentAccountPosition = position;
+          window.currentAccountIsMain = isMain;
+          console.log(`当前账号位置: ${position}, isMain: ${isMain}`);
           // window.currentAccountId = accountId;
           // 保存accountId到webview的data属性中，以便后续获取
           // newWebview.setAttribute('data-account-id', accountId);
@@ -1183,24 +1185,172 @@
           hubFrame.classList.remove("active");
           newWebview.classList.add("active");
 
-          showLoading();
-          const randomUA = getRandomUserAgent();
-          if (window.electronAPI && window.electronAPI.setWebViewUserAgent) {
-            window.electronAPI.setWebViewUserAgent(randomUA);
-          }
-
           // 从navItems中获取对应的url
           const menuItem = navItems.find(
             (item) => item.id === event.data.menuId
           );
+          
           if (menuItem) {
+            // 获取目标URL
+            let targetUrl;
             if (event.data.menuId === 4) {
-              newWebview.src = menuItem.url + sendId;
+              targetUrl = menuItem.url + sendId;
             } else if (event.data.menuId === 8) {
-              newWebview.src = menuItem.url + sendId;
+              targetUrl = menuItem.url + sendId;
             } else {
-              newWebview.src = menuItem.url;
+              targetUrl = menuItem.url;
             }
+            
+            // 实现更健壮的cookie注入逻辑，处理复杂的转义字符和JSON格式问题
+            let cookiePromise;
+            
+            // 1. 首先尝试使用event.data.cookies（如果存在）
+            if (event.data.cookies) {
+                cookiePromise = new Promise((resolve, reject) => {
+                    try {
+                        let cookiesList;
+                        if (typeof event.data.cookies === 'string') {
+                            console.log('处理字符串格式的cookies数据');
+                            
+                            // 移除外部引号
+                            let cookieStr = event.data.cookies.replace(/^"|"$/g, '');
+                            
+                            // 处理转义字符 - 更全面的转义处理
+                            cookieStr = cookieStr.replace(/\\\\"/g, '\\"'); // 处理双重转义
+                            cookieStr = cookieStr.replace(/\\"/g, '"'); // 处理转义引号
+                            
+                            // 尝试找到有效的JSON结束位置（处理可能的截断）
+                            try {
+                                cookiesList = JSON.parse(cookieStr);
+                            } catch (parseError) {
+                                console.error('首次JSON解析失败，尝试修复格式:', parseError);
+                                
+                                // 尝试简化处理：只提取第一个数组元素或使用正则提取cookie数据
+                                // 例如，找到第一个完整的数组对
+                                const arrayMatch = cookieStr.match(/\[\[.*?\]\]/s);
+                                if (arrayMatch) {
+                                    console.log('尝试使用正则提取的数组部分进行解析');
+                                    cookiesList = JSON.parse(arrayMatch[0]);
+                                } else {
+                                    throw new Error('无法提取有效的JSON数组');
+                                }
+                            }
+                        } else {
+                            cookiesList = event.data.cookies;
+                        }
+                        
+                        // 确保cookiesList是数组
+                        if (!Array.isArray(cookiesList)) {
+                            cookiesList = [cookiesList];
+                        }
+                        
+                        // 扁平化cookie数组
+                        const flatCookies = cookiesList.flat();
+                        console.log('成功解析并扁平化cookie，数量:', flatCookies.length);
+                        
+                        // 只保留有效的cookie对象
+                        const validCookies = flatCookies.filter(cookie => 
+                            cookie && typeof cookie === 'object' && cookie.name && cookie.value
+                        );
+                        
+                        if (validCookies.length > 0) {
+                                const domain = new URL(targetUrl).hostname;
+                                
+                                // 注入cookies时，使用baidu.com作为主要domain，确保跨子域名的cookie都能正确注入
+                                // 同时传递原始domain作为参考
+                                return window.electronAPI.setCookies({
+                                    targetUrl: `https://baijiahao.baidu.com`,
+                                    cookies: validCookies,
+                                    domain: 'baidu.com',
+                                    partition: `persist:account_${event.data.accountId}`
+                                }).then(resolve).catch(reject);
+                            } else {
+                                console.warn('未找到有效的cookie对象，跳过注入');
+                                resolve();
+                            }
+                    } catch (error) {
+                        console.error('解析event.data.cookies失败:', error);
+                        resolve(); // 解析失败，继续执行
+                    }
+                });
+            } 
+            // 2. 如果event.data.cookies不存在或解析失败，尝试获取已保存的账号cookie
+            else {
+                cookiePromise = window.electronAPI.getAccountCookies({
+                    userId: event.data.sendId,
+                    type: event.data.menuId,
+                    acc_id: event.data.accountId,
+                    position: event.data.position
+                }).then(savedCookies => {
+                    if (savedCookies && savedCookies.length > 0) {
+                        console.log('使用已保存的账号cookie，数量:', savedCookies.length);
+                        const domain = new URL(targetUrl).hostname;
+                        return window.electronAPI.setCookies({
+                            targetUrl: targetUrl,
+                            cookies: savedCookies,
+                            domain: domain,
+                            partition: `persist:account_${event.data.accountId}`
+                        });
+                    }
+                    return Promise.resolve();
+                }).catch(error => {
+                    console.error('获取已保存的账号cookie失败:', error);
+                    return Promise.resolve();
+                });
+            }
+            
+            // 3. 执行cookie注入并加载URL
+            cookiePromise.then(() => {
+                console.log('cookie处理完成，准备加载URL');
+                
+                // 重点：确保cookie在webview加载URL之前完成注入
+                // 1. 首先获取关键cookie，验证是否成功注入
+                const keyCookies = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'bjhStoken'];
+                
+                // 同时获取.baidu.com和baijiahao.baidu.com域名下的所有cookie
+                Promise.all([
+                    window.electronAPI.getCookies(
+                        'https://baijiahao.baidu.com', 
+                        `persist:account_${event.data.accountId}`
+                    ),
+                    window.electronAPI.getCookies(
+                        'https://baidu.com', 
+                        `persist:account_${event.data.accountId}`
+                    )
+                ]).then(([baijiahaoCookies, baiduCookies]) => {
+                    // 合并所有cookie并去重
+                    const allCookies = [...baijiahaoCookies, ...baiduCookies].filter((cookie, index, self) => 
+                        index === self.findIndex((c) => c.name === cookie.name && c.domain === cookie.domain)
+                    );
+                    
+                    console.log('注入后获取到的全部cookie:', allCookies.length);
+                    console.log('所有cookie详情:', allCookies);
+                    
+                    // 检查关键cookie是否存在
+                    const foundKeyCookies = keyCookies.filter(key => 
+                        allCookies.some(cookie => cookie.name === key)
+                    );
+                    console.log('成功注入的关键cookie:', foundKeyCookies);
+                    
+                    // 检查缺失的关键cookie
+                    const missingKeyCookies = keyCookies.filter(key => 
+                        !allCookies.some(cookie => cookie.name === key)
+                    );
+                    if (missingKeyCookies.length > 0) {
+                        console.log('缺失的关键cookie:', missingKeyCookies);
+                    }
+                    
+                    // 2. 现在加载URL
+                    newWebview.src = targetUrl;
+                }).catch(error => {
+                    console.error('获取注入后的cookie失败:', error);
+                    // 即使获取cookie失败，仍继续加载URL
+                    newWebview.src = targetUrl;
+                });
+            }).catch(error => {
+                console.error('cookie注入过程中出现错误:', error);
+                newWebview.src = targetUrl; // 任何错误都继续加载URL
+            });
           }
         }
         if (event.data.type === "openWenxinAuth") {
@@ -1297,20 +1447,17 @@
             // 从 iframe 获取传递过来的 acc_id
             const iframe = document.getElementById("hubFrame");
             let acc_id = null;
-            let position = 1;
-            let isMain = 0;
             try {
               const hubContent = iframe.contentWindow;
               if (hubContent && hubContent.currentAccountId) acc_id = hubContent.currentAccountId;
-              if (hubContent && hubContent.currentAccount) {
-                position = hubContent.currentAccount.position || 1;
-                isMain = hubContent.currentAccount.isMain || 0;
-              }
             } catch (e) {
               console.log("无法从hub获取账户信息");
             }
+            // 使用之前保存的isMain值，确保主账号标识正确
+            let isMain = window.currentAccountIsMain || 0;
             console.log('使用的参数type为', currentNavId);
-            // 保存cookie信息
+            console.log('使用的currentPosition为', currentPosition);
+            // 保存cookie信息 - 使用之前正确设置的currentPosition，而不是从hubFrame重新获取
             const result1 = window.electronAPI.saveUserCookies({
               currentNavId,
               cookiesList,
@@ -1367,6 +1514,7 @@
               sendId,
               // acc_id: getCurrentAccountId()
               position: currentPosition,
+              isMain: window.currentAccountIsMain || 0,
               // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             // 验证cookie信息
@@ -1377,6 +1525,7 @@
               sendId,
               // acc_id: getCurrentAccountId()
               position: currentPosition,
+              isMain: window.currentAccountIsMain || 0,
               // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
             });
             a.flag = true;
