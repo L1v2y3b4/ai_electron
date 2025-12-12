@@ -1428,21 +1428,6 @@
         
         // 3. 第三步：百度智能体平台（最终登录成功）
         if (url.includes('agents.baidu.com/center') && a && !a.flag) {
-          // 并发获取多个域名的cookie，确保获取完整的cookie链
-          // const promises = [
-          //   window.electronAPI.getCookies("https://agents.baidu.com", partition),
-          //   window.electronAPI.getCookies("https://baidu.com", partition),
-          //   window.electronAPI.getCookies("https://baijiahao.baidu.com", partition)
-          // ];
-          // Promise.all(promises).then((results) => {
-          //   // 处理每个域名的cookie结果，确保都是一维数组
-          //   results.forEach((result) => {
-          //     if (result && Array.isArray(result)) {
-          //       cookiesList.push(result); // 使用扩展运算符确保一维数组
-          //     }
-          //   });
-          //   console.log('所有域名的完整cookie:', cookiesList);
-            
             console.log("hub触发调用main进程");
             // 从 iframe 获取传递过来的 acc_id
             const iframe = document.getElementById("hubFrame");
@@ -1457,31 +1442,39 @@
             let isMain = window.currentAccountIsMain || 0;
             console.log('使用的参数type为', currentNavId);
             console.log('使用的currentPosition为', currentPosition);
+            res = window.electronAPI.getCookies('https://agents.baidu.com/', partition);
+            res.then((result) => {
+              if (result && Array.isArray(result)) {
+                cookiesList.push(result); // 使用扩展运算符确保一维数组
+              }
+              console.log('百度登录页cookie:', cookiesList);
+              const result1 = window.electronAPI.saveUserCookies({
+                currentNavId,
+                cookiesList,
+                token,
+                sendId,
+                position: currentPosition,
+                isMain: isMain
+                });
+                // 验证cookie信息
+                const result2 = window.electronAPI.checkUserCookies({
+                currentNavId,
+                cookiesList,
+                token,
+                sendId,
+                acc_id: acc_id,
+                position: currentPosition,
+                is_main: isMain,
+                // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+                });
+            });
             // 保存cookie信息 - 使用之前正确设置的currentPosition，而不是从hubFrame重新获取
-            const result1 = window.electronAPI.saveUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              position: currentPosition,
-              isMain: isMain
-            });
-            // 验证cookie信息
-            const result2 = window.electronAPI.checkUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              acc_id: acc_id,
-              position: currentPosition,
-              is_main: isMain,
-              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
-            });
+            
             a.flag = true;
             setTimeout(() => {
               console.log("跳转回百家号首页");
               webview.src = "https://baijiahao.baidu.com/builder/rc/home";
-            }, 2000);
+            }, 5000);
             showSuccessMessage("登录成功");
 
             // 所有平台授权成功，通知 hub 页面刷新
