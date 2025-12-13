@@ -1276,25 +1276,38 @@
             } 
             // 2. 如果event.data.cookies不存在或解析失败，尝试获取已保存的账号cookie
             else {
-                cookiePromise = window.electronAPI.getAccountCookies({
+                cookiePromise = window.electronAPI.getAccountStatus({
                     userId: event.data.sendId,
-                    type: event.data.menuId,
-                    acc_id: event.data.accountId,
-                    position: event.data.position
-                }).then(savedCookies => {
-                    if (savedCookies && savedCookies.length > 0) {
-                        console.log('使用已保存的账号cookie，数量:', savedCookies.length);
-                        const domain = new URL(targetUrl).hostname;
-                        return window.electronAPI.setCookies({
-                            targetUrl: targetUrl,
-                            cookies: savedCookies,
-                            domain: domain,
-                            partition: `persist:account_${event.data.accountId}`
+                    type: event.data.menuId
+                }).then(result => {
+                    if (result.success && result.accounts && result.accounts.length > 0) {
+                        // 查找匹配的账号
+                        const matchedAccount = result.accounts.find(acc => {
+                            // 根据position匹配账号
+                            return acc.position === event.data.position;
                         });
+                        
+                        if (matchedAccount && matchedAccount.cookies) {
+                            try {
+                                const savedCookies = JSON.parse(matchedAccount.cookies);
+                                if (savedCookies && savedCookies.length > 0) {
+                                    console.log('从auth/accounts获取到cookie，数量:', savedCookies.length);
+                                    const domain = new URL(targetUrl).hostname;
+                                    return window.electronAPI.setCookies({
+                                        targetUrl: targetUrl,
+                                        cookies: savedCookies,
+                                        domain: domain,
+                                        partition: `persist:account_${event.data.accountId}`
+                                    });
+                                }
+                            } catch (parseError) {
+                                console.error('解析cookie失败:', parseError);
+                            }
+                        }
                     }
                     return Promise.resolve();
                 }).catch(error => {
-                    console.error('获取已保存的账号cookie失败:', error);
+                    console.error('从auth/accounts获取账号信息失败:', error);
                     return Promise.resolve();
                 });
             }
@@ -1399,6 +1412,7 @@
                 cookiesList.push(result); // 使用扩展运算符确保一维数组
               }
               console.log('百家号首页cookie:', cookiesList);
+              const webview = document.getElementById('browserView');
               setTimeout(() => {
                 webview.src = "https://passport.baidu.com/";
               }, 2000);
@@ -1417,6 +1431,7 @@
                 cookiesList.push(result); // 使用扩展运算符确保一维数组
               }
               console.log('百度登录页cookie:', cookiesList);
+              const webview = document.getElementById('browserView');
               setTimeout(() => {
                 webview.src = "https://agents.baidu.com/";
               }, 2000);
@@ -1428,54 +1443,37 @@
         
         // 3. 第三步：百度智能体平台（最终登录成功）
         if (url.includes('agents.baidu.com/center') && a && !a.flag) {
-          // 并发获取多个域名的cookie，确保获取完整的cookie链
-          // const promises = [
-          //   window.electronAPI.getCookies("https://agents.baidu.com", partition),
-          //   window.electronAPI.getCookies("https://baidu.com", partition),
-          //   window.electronAPI.getCookies("https://baijiahao.baidu.com", partition)
-          // ];
-          // Promise.all(promises).then((results) => {
-          //   // 处理每个域名的cookie结果，确保都是一维数组
-          //   results.forEach((result) => {
-          //     if (result && Array.isArray(result)) {
-          //       cookiesList.push(result); // 使用扩展运算符确保一维数组
-          //     }
-          //   });
-          //   console.log('所有域名的完整cookie:', cookiesList);
-            
-            console.log("hub触发调用main进程");
-            // 从 iframe 获取传递过来的 acc_id
-            const iframe = document.getElementById("hubFrame");
-            let acc_id = null;
-            try {
-              const hubContent = iframe.contentWindow;
-              if (hubContent && hubContent.currentAccountId) acc_id = hubContent.currentAccountId;
-            } catch (e) {
-              console.log("无法从hub获取账户信息");
-            }
-            // 使用之前保存的isMain值，确保主账号标识正确
-            let isMain = window.currentAccountIsMain || 0;
-            console.log('使用的参数type为', currentNavId);
-            console.log('使用的currentPosition为', currentPosition);
-            // 保存cookie信息 - 使用之前正确设置的currentPosition，而不是从hubFrame重新获取
-            const result1 = window.electronAPI.saveUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              position: currentPosition,
-              isMain: isMain
-            });
-            // 验证cookie信息
-            const result2 = window.electronAPI.checkUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              acc_id: acc_id,
-              position: currentPosition,
-              is_main: isMain,
-              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+          res = window.electronAPI.getCookies('https://agents.baidu.com', partition);
+				  res.then((result) => {
+              // const webview = document.getElementById('browserView');
+              if (result && Array.isArray(result)) {
+                cookiesList.push(result); // 使用扩展运算符确保一维数组
+              }
+              console.log('当前页面的所有cookie:', cookiesList);
+              let acc_id = null;
+              let isMain = window.currentAccountIsMain || 0;
+              console.log('使用的参数type为', currentNavId);
+              console.log('使用的currentPosition为', currentPosition);
+              // 保存cookie信息 - 使用之前正确设置的currentPosition，而不是从hubFrame重新获取
+              const result1 = window.electronAPI.saveUserCookies({
+                currentNavId,
+                cookiesList,
+                token,
+                sendId,
+                position: currentPosition,
+                isMain: isMain
+              });
+              // 验证cookie信息
+              const result2 = window.electronAPI.checkUserCookies({
+                currentNavId,
+                cookiesList,
+                token,
+                sendId,
+                acc_id: acc_id,
+                position: currentPosition,
+                is_main: isMain,
+                // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+              });
             });
             a.flag = true;
             setTimeout(() => {
@@ -1483,6 +1481,7 @@
               webview.src = "https://baijiahao.baidu.com/builder/rc/home";
             }, 2000);
             showSuccessMessage("登录成功");
+            // });
 
             // 所有平台授权成功，通知 hub 页面刷新
             const hubFrame = document.getElementById("hubFrame");
@@ -1531,6 +1530,7 @@
             a.flag = true;
           });
           showSuccessMessage("登录成功");
+          
         }
         if (
           (url.includes("https://mp.toutiao.com/profile_v4/index") ||
@@ -1780,8 +1780,13 @@
         // 处理百家号特殊授权流程，需要跳转三个页面
         if (currentUrl.includes("baijiahao.baidu.com")) {
           // 直接跳转到百度登录页，启动完整的三页面授权流程
+           // 触发获取首页cookie
           console.log("启动百家号完整授权流程");
-          webview.src = "https://passport.baidu.com/";
+          // webview.src = "https://passport.baidu.com/";
+          cookiesList = [];
+          webview.src = "https://baijiahao.baidu.com/builder/rc/home";
+          // webview.src = "https://agents.baidu.com/";
+          // checkLoginStatus(currentUrl);
           hideLoading();
           showSuccessMessage("已启动授权流程，请等待页面跳转完成");
           return;
