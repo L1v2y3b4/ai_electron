@@ -32,11 +32,11 @@ const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://39.96.205.150:19020'
 // const loginUrl = 'http://192.168.0.38:9020'
 const checkUrl = "http://47.93.80.212:8000/api";
-// const checkUrl = "http://192.168.0.99:8000/api";
+// const checkUrl = "http://127.0.0.1:8000/api";
 // const checkUrl = "http://60.205.188.121:8000/api"
 // const checkUrl = "http://192.168.0.35:8000/api"
 
-// 请求去重机制
+// 请求去重机制  
 const requestTracker = new Map();
 
 function generateRequestId(data) {
@@ -72,10 +72,11 @@ ipcMain.on('set-webview-ua', (event, userAgent) => {
   webviewUserAgents.set(webviewId, userAgent);
 });
 
-function clearCache() {
+function clearCache(partition) {
   try {
     // 清除默认 session 的所有 cookies
-    session.fromPartition('persist:zhongshang').clearStorageData({
+    partition = partition || 'persist:zhongshang'
+    session.fromPartition(partition).clearStorageData({
       storages: ['cookies', 'localstorage', 'indexdb']
     }).then(() => {
       console.log('默认分区所有数据已清除')
@@ -83,12 +84,12 @@ function clearCache() {
       console.error('清除默认分区数据失败:', err);
     });
 
-    const ses = session.fromPartition('persist:zhongshang');
+    const ses = session.fromPartition(partition);
     
     ses.clearCache().then(() => {
-      console.log('---------clearCache true');
+      console.log('清除缓存成功');
     }).catch(err => {
-      console.error('------clearCache fail:', err);
+      console.error('清除缓存失败', err);
     });
 
     ses.clearStorageData({
@@ -154,7 +155,7 @@ function createLoginWindow() {
 
     loginWindow.webContents.on('did-finish-load', () => {
       loginWindow.webContents.send('get_version', { version });
-      console.log('------登录窗口加载完成')
+      console.log('登录窗口加载完成')
     });
 
     loginWindow.once('ready-to-show', () => {
@@ -301,7 +302,7 @@ function createMainWindow(token, sendId, userName) {
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('set-user-data', { token, sendId, userName });
-    console.log('------窗口加载完成')
+    console.log('did-finish-load-窗口加载完成')
   });
 
   mainWindow.on('closed', () => {
@@ -341,6 +342,11 @@ ipcMain.handle('get-cookies', async (event, domain, partition = null) => {
   }
 });
 
+ipcMain.handle("clear-cookies", async (event, { partition }) => {
+    const temp_partition = partition || 'persist:zhongshang'
+    clearCache(temp_partition)
+})
+
 // 2. 修复 set-cookies (增强版)
 ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partition }) => {
   // 使用传入的partition，如果没有则使用默认值
@@ -374,7 +380,7 @@ ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partit
         let cookieUrl = targetUrl;
         
         // 详细日志：记录原始cookie信息
-        console.log(`原始cookie信息: ${c.name}, domain: ${c.domain}, path: ${c.path}, secure: ${c.secure}, httpOnly: ${c.httpOnly}, sameSite: ${c.sameSite}`);
+        // console.log(`原始cookie信息: ${c.name}, domain: ${c.domain}, path: ${c.path}, secure: ${c.secure}, httpOnly: ${c.httpOnly}, sameSite: ${c.sameSite}`);
         
         // 特别处理关键cookie，确保使用正确的domain和url
         if (keyCookieNames.includes(c.name)) {
@@ -519,12 +525,12 @@ ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partit
           
           // 详细日志：记录每个cookie的注入尝试，关键cookie用特殊标记
           const isKeyCookie = keyCookieNames.includes(c.name) ? "[关键] " : "";
-          console.log(`${isKeyCookie}尝试注入cookie: ${c.name}, 尝试${i+1}, domain: ${attempt.domain}, url: ${attempt.url}, secure: ${attempt.secure}, sameSite: ${attempt.sameSite}`);
+        //   console.log(`${isKeyCookie}尝试注入cookie: ${c.name}, 尝试${i+1}, domain: ${attempt.domain}, url: ${attempt.url}, secure: ${attempt.secure}, sameSite: ${attempt.sameSite}`);
           
           try {
             await ses.cookies.set(attempt);
             successCount++;
-            console.log(`${isKeyCookie}成功注入cookie: ${c.name}, 尝试${i+1}成功`);
+            // console.log(`${isKeyCookie}成功注入cookie: ${c.name}, 尝试${i+1}成功`);
             injectionSuccess = true;
             break; // 成功后跳出循环
           } catch (attemptErr) {
@@ -563,7 +569,7 @@ ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partit
                        !failedCookies.some(f => f.name === name);
       return { name, isSuccess };
     });
-    console.log('关键cookie注入结果:', keyCookieResults);
+    // console.log('关键cookie注入结果:', keyCookieResults);
     
     if (failedCookies.length > 0) {
       console.log('失败的cookie详情:', failedCookies);
@@ -571,7 +577,7 @@ ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partit
     
     return { ok: true, successCount, failedCount: failedCookies.length, failedCookies, keyCookieResults };
   } catch (err) {
-    console.error("cookie set failed:", err);
+    console.error("Cookie设置失败:", err);
     return { ok: false, error: err.message, successCount, failedCount: failedCookies.length };
   }
 });
@@ -731,7 +737,7 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
     
     // 检查是否存在相同账户，若存在则更新，否则插入
     if (existingAccount) {
-      console.log('存在相同账户，执行更新操作:', existingAccount);
+      console.log(existingAccount, '存在相同账户，执行更新操作:');
       // 添加id字段进行更新
       data.id = existingAccount.id;
       
@@ -759,7 +765,7 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
       }
     );
     
-    console.log('======saveResponse====save_user_cookies', saveResponse.data);
+    console.log(saveResponse.data, '======saveResponse====save_user_cookies');
     return saveResponse.data;
   } catch (error) {
     console.error('保存信息错误:', error);
@@ -861,7 +867,7 @@ ipcMain.handle("save-account-cookies", async (event, { userId, type, position, c
     });
 
     // 发送到服务器保存
-    const response = await axios.post(`${checkUrl}/desktop/check/saveAccountCookies/`, {
+    const response = await axios.post(`${checkUrl}/desktop/check/sign/`, {
       user_id: userId,
       type: type,
       position: position,
@@ -883,7 +889,7 @@ ipcMain.handle("save-account-cookies", async (event, { userId, type, position, c
 ipcMain.handle("get-account-cookies", async (event, { userId, type, position, acc_id }) => {
   try {
     // 从服务器获取已保存的cookies
-    const response = await axios.get(`${checkUrl}/desktop/check/getAccountCookies/`, {
+    const response = await axios.post(`${checkUrl}/desktop/check/sign/`, {
       params: {
         user_id: userId,
         type: type,
@@ -1035,7 +1041,25 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
   // 如果URL包含智能体相关，尝试设置智能体cookies
   if (data.url.includes('wenxin') || data.url.includes('agents.baidu.com')) {
     try {
+        // 设置cookie前清空缓存
+        console.log('智能体清除缓存');
+        ses.clearCache().then(() => {
+            console.log('清除缓存成功');
+        }).catch(err => {
+            console.error('清除缓存失败', err);
+        });
+
+        ses.clearStorageData({
+            storages: ['cookies', 'localstorage', 'indexdb'],
+            quotas: ['temporary', 'persistent']
+        }).then(() => {
+            console.log('所有存储数据已清除');
+        }).catch(err => {
+            console.error('清除存储数据失败:', err);
+        });
       // 首先尝试使用全局的agent_cookies
+      console.log("当前的智能体cookies", agent_cookies.length)
+      
       if (agent_cookies && agent_cookies.length > 0) {
         for (const j of agent_cookies) {
           try {
@@ -1360,7 +1384,7 @@ ipcMain.handle('show-message', async (event, options) => {
   if (!options?.type || !options?.title) {
     throw new Error('缺少必要参数: type 或 title');
   }
-  console.log('===弹框', options.title, options.message);
+  console.log(options.title, options.message, '===弹框');
 
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
@@ -1514,8 +1538,15 @@ async function getUserCookies(sendId) {
       console.log(item.url, 'i.url====================');
       if (item.url.includes('https://agents.baidu.com')) {
         // 特殊处理 agent cookies - 同时保存到全局变量和用户缓存
-        agent_cookies = [...(agent_cookies || []), ...item.cookie];
-        console.log('智能体cookies已更新，数量:', agent_cookies.length);
+        // agent_cookies = [...(agent_cookies || []), ...item.cookie];
+        if (item.url.includes('https://agents.baidu.com')){
+            agent_cookies.push(...item.cookie);
+            console.log('智能体cookies已更新，数量:', agent_cookies.length);
+            continue;
+        }
+        if (i.url.includes('https://zhiyou.smzdm.com')){
+            continue;
+        }
         
         // 也保存到用户缓存
         if (!userCache.has(9)) {
@@ -1572,10 +1603,9 @@ ipcMain.handle('get_user_list', async (event, token, khName = '', khUsername = '
     );
     
     const result = response.data;
-    console.log(result,'result==========2222');
+    console.log(result,'get_user_list-result');
     
     if (result.code === 200) {
-      console.log(result,'result==========');
       return result;
     } else {
       return { success: false, message: result.msg || '登录失败' };

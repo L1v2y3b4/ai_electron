@@ -817,7 +817,7 @@
 				const currentUrl = webview.getURL();
 				const url = new URL(currentUrl);
 				// const domain = url.hostname;
-				console.log('-----', url)
+				console.log('当前网址:', url)
 				// console.log(currentUrl)
 				if (currentUrl.includes('https://mp.toutiao.com/profile_v4/index') || '/profile_v4/index'.includes(currentUrl)) {
 					checkLoginStatus(currentUrl);

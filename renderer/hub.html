@@ -521,8 +521,10 @@
 
         // 使用actualType作为接口调用的type参数
         // 如果actualType存在（如文心智能体），使用actualType；否则使用menuId
-        const platformType = actualType !== null ? actualType : currentMenuId;
-
+        let platformType = actualType !== null ? actualType : currentMenuId;
+        if (platformType === 9){
+            platformType = 1
+        }
         console.log(
           "正在调用 getAccountStatus 当前 userId:",
           currentUserData.sendId,
@@ -531,14 +533,14 @@
           "actualType:",
           actualType,
           "调用接口type:",
-          platformType
+          platformType,
         );
         const result = await electronAPI.getAccountStatus({
           userId: currentUserData.sendId,
           type: platformType,
         });
 
-        console.log("调用getAccountStatus 结果为:", result);
+        console.log("%c调用getAccountStatus 结果为:",'color: red; font-weight: bold;', result);
         console.log("服务器返回的账号列表:", result.accounts);
 
         if (result.success) {
@@ -558,9 +560,12 @@
               const posB = b.position || 0;
               return posA - posB;
             });
-
+            console.log("sortedServerAccounts:", sortedServerAccounts)
+            console.log("currentMenuId:", currentMenuId)
+            console.log("accounts[currentUserData.sendId][currentMenuId]: ",JSON.stringify(accounts[currentUserData.sendId][currentMenuId]))
             accounts[currentUserData.sendId][currentMenuId].forEach(
               (account, index) => {
+                console.log("accounts[currentUserData.sendId][currentMenuId] account:", account)
                 const localPosition = account.position;
                 let serverAccount = null;
 
@@ -634,10 +639,7 @@
                   account.hasEverBound = true;
                 }
 
-                console.log(
-                  `位置 ${localPosition} 的账号匹配结果:`,
-                  serverAccount
-                );
+                console.log(`位置 ${localPosition} 的账号匹配结果:`, serverAccount);
 
                 const newStatus = serverAccount ? 
                   (serverAccount.acc_id !== null && serverAccount.acc_id !== undefined ? "active" : "pending") : 
@@ -652,6 +654,7 @@
                 account.isMain = currentMenuId === 1 ? (localPosition === 1 ? 1 : 0) : 0;
 
                 let serverDataChanged = false;
+                console.log("serverAccount: ", serverAccount)
                 if (serverAccount) {
                     // 标记这个服务器账号已被使用
                     if (serverAccount.acc_id) {
@@ -660,7 +663,8 @@
 
                     console.log(
                       `服务器账号数据 (position ${localPosition}):`,
-                      JSON.stringify(serverAccount, null, 2)
+                    //   JSON.stringify(serverAccount, null, 2)
+                    serverAccount
                     );
                     console.log(
                       `userData 存在:`,
@@ -754,8 +758,8 @@
       console.log("调用了renderAccounts 用户ID为:", currentMenuId);
       const accountsGrid = document.getElementById("accountsGrid");
 
-      console.log("账户网格元素:", accountsGrid);
-      console.log("账户父级元素:", accountsGrid?.parentElement);
+    //   console.log("账户网格元素:", accountsGrid);
+    //   console.log("账户父级元素:", accountsGrid?.parentElement);
 
       if (
         currentMenuId === null ||
@@ -775,56 +779,60 @@
 
       // 文心智能体受 showMultipleAccounts 控制
       // 判断是否为文心智能体：actualType为9表示文心智能体
+      console.log("检查文心智能体", actualType)
       if (actualType === 9) {
+        console.log('showMultipleAccounts:', showMultipleAccounts)
         if (showMultipleAccounts) {
           // 生成5个固定账号
-          accounts[currentUserData.sendId][currentMenuId] = [
-            {
-              id: "wenxin_1",
-              name: "文心智能体账号1",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 1,
-            },
-            {
-              id: "wenxin_2",
-              name: "文心智能体账号2",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 2,
-            },
-            {
-              id: "wenxin_3",
-              name: "文心智能体账号3",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 3,
-            },
-            {
-              id: "wenxin_4",
-              name: "文心智能体账号4",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 4,
-            },
-            {
-              id: "wenxin_5",
-              name: "文心智能体账号5",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 5,
-            },
-          ];
+          console.log("accounts", accounts)
+          console.log("currentUserData", currentUserData)
+        //   accounts[currentUserData.sendId][currentMenuId] = [
+        //     {
+        //       id: "wenxin_1",
+        //       name: "文心智能体账号11234",
+        //       icon: "🤖",
+        //       status: "pending",
+        //       menuId: 1,
+        //       actualType: 9, // 保存实际类型
+        //       position: 1,
+        //     },
+        //     {
+        //       id: "wenxin_2",
+        //       name: "文心智能体账号2",
+        //       icon: "🤖",
+        //       status: "pending",
+        //       menuId: 1,
+        //       actualType: 9, // 保存实际类型
+        //       position: 2,
+        //     },
+        //     {
+        //       id: "wenxin_3",
+        //       name: "文心智能体账号3",
+        //       icon: "🤖",
+        //       status: "pending",
+        //       menuId: 1,
+        //       actualType: 9, // 保存实际类型
+        //       position: 3,
+        //     },
+        //     {
+        //       id: "wenxin_4",
+        //       name: "文心智能体账号4",
+        //       icon: "🤖",
+        //       status: "pending",
+        //       menuId: 1,
+        //       actualType: 9, // 保存实际类型
+        //       position: 4,
+        //     },
+        //     {
+        //       id: "wenxin_5",
+        //       name: "文心智能体账号5",
+        //       icon: "🤖",
+        //       status: "pending",
+        //       menuId: 1,
+        //       actualType: 9, // 保存实际类型
+        //       position: 5,
+        //     },
+        //   ];
         } else {
           // 当 showMultipleAccounts 为 false 时，创建一个默认账号
           accounts[currentUserData.sendId][currentMenuId] = [
@@ -857,8 +865,10 @@
         accounts[currentUserData.sendId][currentMenuId] = [];
         // 确定需要创建的账号数量：百家号和文心智能体创建5个，其他平台创建1个
         // 判断是否为百家号或文心智能体：menuId为1表示百家号或文心智能体
+        console.log("showMultipleAccounts:", showMultipleAccounts)
+        console.log('%ccurrentMenuId', 'color: yellow;', currentMenuId)
         const accountCount =
-          currentMenuId === 1 && showMultipleAccounts
+          [1, 9].includes(currentMenuId) && showMultipleAccounts
             ? 5
             : 1;
 
@@ -873,7 +883,7 @@
             actualType: actualType, // 保存实际类型，用于区分百家号和文心智能体
             position: i, // 固定position，创建时分配，永不改变
             isMain:
-              currentMenuId === 1
+              [1, 9].includes(currentMenuId)
                 ? i === 1
                   ? 1
                   : 0
@@ -898,7 +908,7 @@
 
       accountsGrid.innerHTML = "";
       accountsGrid.style.display = "grid";
-      console.log("设置为网格显示");
+    //   console.log("设置为网格显示");
 
       if (menuAccounts.length > 0) {
         // 按照 position 字段排序账号列表
@@ -910,13 +920,13 @@
         });
 
         menuAccounts.forEach((account, index) => {
-          console.log("为账户信息创建卡片", index, ":", account);
+        //   console.log("为账户信息创建卡片", index, ":", account);
           const card = createAccountCard(account, menuItem);
           accountsGrid.appendChild(card);
-          console.log(
-            "账户卡片已添加，当前账户数量：",
-            accountsGrid.children.length
-          );
+        //   console.log(
+        //     "账户卡片已添加，当前账户数量：",
+        //     accountsGrid.children.length
+        //   );
         });
       } else {
         console.log("没有账户信息");
@@ -932,8 +942,8 @@
     }
 
     function createAccountCard(account, menuItem) {
-  console.log("创建账号卡片");
-  console.log("账户数据为:", account);
+//   console.log("创建账号卡片");
+//   console.log("账户数据为:", account);
   
   // 在函数顶部统一声明 accountType，用于区分文心智能体和百家号
   // 如果是文心智能体（actualType为9），使用文心智能体的类型；否则使用menuId
@@ -1138,7 +1148,9 @@
   enterBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     console.log("点击了网格元素，进入网页", account);
-    console.log("账号的 serverData:", account.serverData);
+    console.log("%c账号实际登录信息 serverData:", 'color:green;');
+    console.log('%c是否为文心智能体', 'color:green', accountType)
+    console.log(account.serverData)
 
     window.currentAccountId = account.serverData
       ? account.serverData.acc_id

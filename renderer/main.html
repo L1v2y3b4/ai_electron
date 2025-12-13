@@ -752,7 +752,7 @@
             _type: "zmt_wy",
           })
           .then((result) => {
-            console.log("权限调用结果:", result);
+            console.log("render_权限调用结果:", result);
             navItems.forEach((item) => {
               if (result.hasOwnProperty(item.id) && result[item.id]) {
                 item.show = result[item.id];
@@ -1057,7 +1057,7 @@
         hideLoading();
         const currentUrl = webview.getURL();
         const url = new URL(currentUrl);
-        console.log("-----", url);
+        console.log("renderer_当前网址:", url);
         if (
           currentUrl.includes("https://mp.toutiao.com/profile_v4/index") ||
           "/profile_v4/index".includes(currentUrl)
@@ -1276,10 +1276,13 @@
             } 
             // 2. 如果event.data.cookies不存在或解析失败，尝试获取已保存的账号cookie
             else {
+                console.log('%cgetAccountStatus->>>>', 'color: red; font-weight: bold;', event.data)
                 cookiePromise = window.electronAPI.getAccountStatus({
                     userId: event.data.sendId,
                     type: event.data.menuId
                 }).then(result => {
+                    console.log("%cgetAccountStatus的结果:", 'color: green; font-weight: bold;')
+                    console.log(result)
                     if (result.success && result.accounts && result.accounts.length > 0) {
                         // 查找匹配的账号
                         const matchedAccount = result.accounts.find(acc => {
@@ -1287,7 +1290,7 @@
                             return acc.position === event.data.position;
                         });
                         
-                        if (matchedAccount && matchedAccount.cookies) {
+                        if (matchedAccount) {
                             try {
                                 const savedCookies = JSON.parse(matchedAccount.cookies);
                                 if (savedCookies && savedCookies.length > 0) {
@@ -1299,6 +1302,12 @@
                                         domain: domain,
                                         partition: `persist:account_${event.data.accountId}`
                                     });
+                                }else{
+                                    console.log("%c未拿到cookie,清空缓存", 'color: red; font-weight: bold;')
+                                    window.electronAPI.clearCookies({
+                                        partition: `persist:account_${event.data.accountId}`
+                                    });
+                                    return
                                 }
                             } catch (parseError) {
                                 console.error('解析cookie失败:', parseError);
@@ -1368,6 +1377,7 @@
         }
         if (event.data.type === "openWenxinAuth") {
           // 打开文心智能体授权页面
+          console.log("打开文心智能体授权页面")
           window.electronAPI.openUrlInNewWindow({
             url: event.data.url,
             partition: `persist:wenxin_${event.data.accountId}`,
@@ -1389,7 +1399,7 @@
 
       function checkLoginStatus(url) {
         console.log("---验证url", url);
-        console.log("获取到的数据是：", navItems);
+        // console.log("获取到的数据是：", navItems);
         const a = navItems.find((item) => item.id === currentNavId);
         console.log("-----a------", a);
         
@@ -1408,10 +1418,8 @@
           try {
             res = window.electronAPI.getCookies('https://baijiahao.baidu.com', partition);
             res.then((result) => {
-              if (result && Array.isArray(result)) {
-                cookiesList.push(result); // 使用扩展运算符确保一维数组
-              }
-              console.log('百家号首页cookie:', cookiesList);
+              cookiesList.push(result);
+              console.log('%c百家号->>>>', 'color: red; font-weight: bold;', cookiesList);
               const webview = document.getElementById('browserView');
               setTimeout(() => {
                 webview.src = "https://passport.baidu.com/";
@@ -1423,14 +1431,12 @@
         }
         
         // 2. 第二步：百度登录页
-        if (url.includes('passport.baidu.com') && a && !a.flag) {
+        if (url.includes('https://passport.baidu.com/v6/ucenter') && a && !a.flag) {
           try {
             res = window.electronAPI.getCookies('https://passport.baidu.com', partition);
             res.then((result) => {
-              if (result && Array.isArray(result)) {
-                cookiesList.push(result); // 使用扩展运算符确保一维数组
-              }
-              console.log('百度登录页cookie:', cookiesList);
+              cookiesList.push(result);
+              console.log('%c百度->>>>', 'color: red; font-weight: bold;', cookiesList);
               const webview = document.getElementById('browserView');
               setTimeout(() => {
                 webview.src = "https://agents.baidu.com/";
@@ -1459,28 +1465,26 @@
             console.log('使用的currentPosition为', currentPosition);
             res = window.electronAPI.getCookies('https://agents.baidu.com/', partition);
             res.then((result) => {
-              if (result && Array.isArray(result)) {
-                cookiesList.push(result); // 使用扩展运算符确保一维数组
-              }
-              console.log('百度登录页cookie:', cookiesList);
+              cookiesList.push(result);
+              console.log('%c智能体->>>>', 'color: red; font-weight: bold;', cookiesList);
               const result1 = window.electronAPI.saveUserCookies({
-                currentNavId,
-                cookiesList,
-                token,
-                sendId,
-                position: currentPosition,
-                isMain: isMain
+                    currentNavId,
+                    cookiesList,
+                    token,
+                    sendId,
+                    position: currentPosition,
+                    isMain: isMain
                 });
                 // 验证cookie信息
                 const result2 = window.electronAPI.checkUserCookies({
-                currentNavId,
-                cookiesList,
-                token,
-                sendId,
-                acc_id: acc_id,
-                position: currentPosition,
-                is_main: isMain,
-                // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+                    currentNavId,
+                    cookiesList,
+                    token,
+                    sendId,
+                    acc_id: acc_id,
+                    position: currentPosition,
+                    is_main: isMain,
+                    // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
                 });
             });
             // 保存cookie信息 - 使用之前正确设置的currentPosition，而不是从hubFrame重新获取
@@ -1504,13 +1508,7 @@
             }
           // });
         }
-        if (
-          url.includes(
-            "https://mp.sohu.com/mpfe/v4/contentManagement/first/page"
-          ) &&
-          a &&
-          !a.flag
-        ) {
+        if (url.includes("https://mp.sohu.com/mpfe/v4/contentManagement/first/page") &&a && !a.flag ) {
           res = window.electronAPI.getCookies("https://mp.sohu.com", partition);
           res.then((result) => {
             cookiesList = [];
@@ -1542,12 +1540,7 @@
           showSuccessMessage("登录成功");
           
         }
-        if (
-          (url.includes("https://mp.toutiao.com/profile_v4/index") ||
-            "profile_v4/index".includes(url)) &&
-          a &&
-          !a.flag
-        ) {
+        if ((url.includes("https://mp.toutiao.com/profile_v4/index") ||"profile_v4/index".includes(url)) &&a &&!a.flag) {
           res = window.electronAPI.getCookies("https://mp.toutiao.com", partition);
           res.then((result) => {
             cookiesList = [];
@@ -1636,8 +1629,7 @@
           showSuccessMessage("登录成功");
         }
         // 网易平台登录成功处理
-        if (url.includes("https://mp.163.com/login.html#/") && a && !a.flag
-        ) {
+        if (url.includes("https://mp.163.com/login.html#/") && a && !a.flag) {
           res = window.electronAPI.getCookies("https://mp.163.com", partition);
           console.log("进入到网易平台登录成功处理");
           res.then((result) => {
@@ -1680,13 +1672,7 @@
             }
           });
         }
-        if (
-          url.includes(
-            "http://zs.open.chuangmaedu.com/openPlatform/callback"
-          ) &&
-          a &&
-          !a.flag
-        ) {
+        if (url.includes("http://zs.open.chuangmaedu.com/openPlatform/callback") && a && !a.flag ) {
           res = window.electronAPI.getCookies(
             "http://zs.open.chuangmaedu.com",
             partition
