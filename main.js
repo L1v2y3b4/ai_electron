@@ -27,7 +27,7 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 
 // 智能体的cookie
 let agent_cookies = [];
-
+let agent_cookies_accounts = {1:[],2:[],3:[],4:[],5:[]}
 const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://39.96.205.150:19020'
 // const loginUrl = 'http://192.168.0.38:9020'
@@ -583,10 +583,11 @@ ipcMain.handle("set-cookies", async (event, { targetUrl, cookies, domain, partit
 });
 
 // 3. 添加兼容的 get-agent-cookies
-ipcMain.handle("get-agent-cookies", async (event) => {
+ipcMain.handle("get-agent-cookies", async (event, data) => {
   try {
+    const { position } = data
     console.log('获取智能体cookies');
-    
+    const agent_cookies = agent_cookies_accounts[position]
     // 兼容性处理：如果 agent_cookies 存在则返回，否则返回空数组
     if (agent_cookies && agent_cookies.length > 0) {
       const safeCookies = agent_cookies.map(c => ({
@@ -1001,8 +1002,8 @@ ipcMain.handle('clear-account-cookies', async (event, { accountId, menuId }) => 
 
 // 10. 新增 open-url-in-new-window (智能体兼容)
 ipcMain.on('open-url-in-new-window', async (event, data) => {
-  const { url, partition, accountId, sendId } = data;
-
+  const { url, partition, accountId, sendId, position, _type } = data;
+  console.log(sendId, position, _type)
   const mainState = windowStateKeeper({
     defaultWidth: 1200,
     defaultHeight: 800,
@@ -1058,6 +1059,7 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
             console.error('清除存储数据失败:', err);
         });
       // 首先尝试使用全局的agent_cookies
+      const agent_cookies = agent_cookies_accounts[position]
       console.log("当前的智能体cookies", agent_cookies.length)
       
       if (agent_cookies && agent_cookies.length > 0) {
@@ -1539,14 +1541,10 @@ async function getUserCookies(sendId) {
       if (item.url.includes('https://agents.baidu.com')) {
         // 特殊处理 agent cookies - 同时保存到全局变量和用户缓存
         // agent_cookies = [...(agent_cookies || []), ...item.cookie];
-        if (item.url.includes('https://agents.baidu.com')){
-            agent_cookies.push(...item.cookie);
-            console.log('智能体cookies已更新，数量:', agent_cookies.length);
-            continue;
-        }
-        if (i.url.includes('https://zhiyou.smzdm.com')){
-            continue;
-        }
+        // 按位置写入智能体缓存cookie
+        agent_cookies_accounts[item.position].push(...item.cookie)
+        // agent_cookies.push(...item.cookie);
+        console.log('智能体cookies已更新，数量:', agent_cookies_accounts[item.position].length);
         
         // 也保存到用户缓存
         if (!userCache.has(9)) {

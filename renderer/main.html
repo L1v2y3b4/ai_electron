@@ -1377,11 +1377,15 @@
         }
         if (event.data.type === "openWenxinAuth") {
           // 打开文心智能体授权页面
+          console.log("智能体新页面收到的消息:", event.data)
           console.log("打开文心智能体授权页面")
           window.electronAPI.openUrlInNewWindow({
             url: event.data.url,
             partition: `persist:wenxin_${event.data.accountId}`,
             acc_id: event.data.accountId,
+            sendId: event.data.send_id,
+            position: event.data.position,
+            _type: 1, // 百度系
           });
           
         }
