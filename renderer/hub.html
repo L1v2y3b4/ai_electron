@@ -599,15 +599,17 @@
 
                   // 核心逻辑：确保所有账号解绑后位置都不会被其他账号填充
                   // 允许匹配的情况：
-                  // 1. 从未绑定过的账号（首次加载）：hasEverBound为false
+                  // 1. 从未绑定过的账号（首次加载） hasEverBound 为false
                   // 2. 已绑定账号：acc_id在服务器上存在
                   const hasBoundAccId = account.serverData && account.serverData.acc_id;
                   const accIdExistsOnServer = hasBoundAccId ? allServerAccIds.has(account.serverData.acc_id) : false;
                   
                   // 只有从未绑定过的账号，或者已绑定且acc_id存在的账号，才允许匹配
                   // 一旦曾经绑定过又解绑的账号（hasEverBound为true且没有serverData），永远不再匹配其他账号
-                  if ((!account.hasEverBound && !hasBoundAccId) || (hasBoundAccId && accIdExistsOnServer)) {
+                  console.log("%chasBoundAccId:",'color:red;',hasBoundAccId)
+                  if ((!account.hasEverBound && !hasBoundAccId) || (hasBoundAccId)) {
                     // 主账号位置（position=1）只能匹配服务器返回的is_main=1或true的账号
+                    console.log('%c其他位置按position匹配服务器账号', 'color:blue;', localPosition,currentMenuId)
                     if (localPosition === 1 && currentMenuId === 1) {
                       serverAccount = sortedServerAccounts.find((acc) => {
                         const accId = acc.acc_id;
@@ -619,7 +621,7 @@
                         );
                       });
                     } else {
-                      // 其他位置按position匹配服务器账号
+                      console.log('%c其他位置按position匹配服务器账号', 'color:blue;')
                       serverAccount = sortedServerAccounts.find((acc) => {
                         const accId = acc.acc_id;
                         // 只匹配有acc_id的账号，避免匹配到空账号
@@ -635,11 +637,12 @@
                 }
                 
                 // 更新hasEverBound属性：如果匹配到了serverAccount，说明已经绑定过
-                if (serverAccount && serverAccount.acc_id) {
-                  account.hasEverBound = true;
-                }
+                // if (serverAccount && serverAccount.acc_id) {
+                //   account.hasEverBound = true;
+                // }
 
-                console.log(`位置 ${localPosition} 的账号匹配结果:`, serverAccount);
+                console.log(`%c位置 ${localPosition} 的账号匹配结果:`,'color:green;');
+                console.log(serverAccount)
 
                 const newStatus = serverAccount ? 
                   (serverAccount.acc_id !== null && serverAccount.acc_id !== undefined ? "active" : "pending") : 
@@ -654,7 +657,7 @@
                 account.isMain = currentMenuId === 1 ? (localPosition === 1 ? 1 : 0) : 0;
 
                 let serverDataChanged = false;
-                console.log("serverAccount: ", serverAccount)
+                console.log("%cserverAccount: ",'color:red;', serverAccount)
                 if (serverAccount) {
                     // 标记这个服务器账号已被使用
                     if (serverAccount.acc_id) {
@@ -672,22 +675,13 @@
                       "userData 内容:",
                       serverAccount.userData
                     );
-
-                    // 检查serverData是否需要更新
-                    serverDataChanged = 
-                      !account.serverData ||
-                      account.serverData.acc_id !== serverAccount.acc_id ||
-                      JSON.stringify(account.serverData) !== JSON.stringify(serverAccount);
-
-                    if (serverDataChanged) {
-                      account.serverData = serverAccount;
-                      // 更新账号名称（如果服务器有返回）
-                      if (
+                    account.serverData = serverAccount;
+                    // 更新账号名称（如果服务器有返回）
+                    if (
                         serverAccount.userData &&
                         serverAccount.userData.nikeName
-                      ) {
+                    ) {
                         account.name = serverAccount.userData.nikeName;
-                      }
                     }
                 } else {
                   // 如果没有匹配到服务器账号，检查serverData是否需要清空
@@ -697,24 +691,25 @@
                   }
                 }
 
-                // 检查是否需要更新：状态变化、serverData变化、position变化或isMain变化
+                // ————————检查是否需要更新：状态变化、serverData变化、position变化或isMain变化
+                // [fix]每次都更新
                 const positionChanged = originalPosition !== account.position;
                 const isMainChanged = originalIsMain !== account.isMain;
                 
-                if (account.status !== newStatus || serverDataChanged || positionChanged || isMainChanged) {
+                // if (account.status !== newStatus || serverDataChanged || positionChanged || isMainChanged) {
                   account.status = newStatus;
                   hasChanges = true;
                   
-                  if (serverAccount) {
-                    console.log(
-                      `更新账户 ${account.id} (position: ${localPosition})，服务器账号ID: ${serverAccount.acc_id}，isMain: ${account.isMain}`
-                    );
-                  } else {
-                    console.log(
-                      `重置账户 ${account.id} (position: ${localPosition}) 为 pending 状态，isMain: ${account.isMain}`
-                    );
-                  }
-                }
+                //   if (serverAccount) {
+                //     console.log(
+                //       `更新账户 ${account.id} (position: ${localPosition})，服务器账号ID: ${serverAccount.acc_id}，isMain: ${account.isMain}`
+                //     );
+                //   } else {
+                //     console.log(
+                //       `重置账户 ${account.id} (position: ${localPosition}) 为 pending 状态，isMain: ${account.isMain}`
+                //     );
+                //   }
+                // }
               }
             );
 
@@ -1081,8 +1076,9 @@
     e.stopPropagation();
     console.log("点击了网格元素，进入网页", account);
     console.log("%c账号实际登录信息 serverData:", 'color:green;');
-    console.log('%c是否为文心智能体', 'color:green', accountType)
     console.log(account.serverData)
+    console.log('%c是否为文心智能体', 'color:green', accountType)
+    
 
     window.currentAccountId = account.serverData
       ? account.serverData.acc_id
@@ -1106,7 +1102,8 @@
           url: "https://agents.baidu.com/center",
           acc_id: account.serverData ? account.serverData.acc_id : null,
           position: account.position,
-          send_id: account.serverData.send_id
+          send_id: account.serverData.send_id,
+          current_cookies: account.serverData.cookies,
         },
         "*"
       );

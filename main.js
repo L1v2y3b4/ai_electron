@@ -1002,7 +1002,7 @@ ipcMain.handle('clear-account-cookies', async (event, { accountId, menuId }) => 
 
 // 10. 新增 open-url-in-new-window (智能体兼容)
 ipcMain.on('open-url-in-new-window', async (event, data) => {
-  const { url, partition, accountId, sendId, position, _type } = data;
+  const { url, partition, accountId, sendId, position, _type, current_cookie } = data;
   console.log(sendId, position, _type)
   const mainState = windowStateKeeper({
     defaultWidth: 1200,
@@ -1060,6 +1060,14 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
         });
       // 首先尝试使用全局的agent_cookies
       const agent_cookies = agent_cookies_accounts[position]
+      if (agent_cookies.length==0){
+        try{
+            console.log("登录后立即点击智能体事件触发,使用传入的cookies")
+            agent_cookies = JSON.parse(JSON.parse(current_cookie))[2]
+        } catch (cookieError) {
+            console.error('设置智能体cookie失败:', cookieError);
+        }
+      }
       console.log("当前的智能体cookies", agent_cookies.length)
       
       if (agent_cookies && agent_cookies.length > 0) {
@@ -1526,6 +1534,7 @@ ipcMain.on('open-url', (event, url) => {
 const userCookieCache = new Map();
 
 async function getUserCookies(sendId) {
+    console.log("反向登录")
   console.log('---GET /desktop/save/agent/co/ for user:', sendId);
   try {
     const response = await axios.get(`${checkUrl}/desktop/save/agent/co/?send_id=${sendId}`);

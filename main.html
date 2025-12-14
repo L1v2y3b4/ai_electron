@@ -994,7 +994,12 @@
                 res.then((result) => {
                     const webview = document.getElementById('browserView');
                     cookiesList.push(result);
-                    // console.log('当前页面的所有cookie:', cookiesList);
+                    // console.log('%c反向更新文心智能体的cookie', 'color:green;');
+                    // window.electronAPI.setAgentCookies({
+                    //     cookies: result,
+                    //     sendId: sendId,
+
+                    // })
                     //去发送后端
                     // console.log(currentNavId)
                     // const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
