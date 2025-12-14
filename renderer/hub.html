@@ -490,7 +490,7 @@
               showMultipleAccounts = false; // 默认非蓝V用户
             }
           }
-        console.log("当前用户是否篮V", showMultipleAccounts);
+        console.log("当前用户是否蓝V", showMultipleAccounts);
         console.log("选择菜单", currentMenuId, "实际类型", actualType, "导航项数量", navItems.length);
         renderAccounts();
         setTimeout(debouncedUpdateAccountStatus, 100);
@@ -562,7 +562,7 @@
             });
             console.log("sortedServerAccounts:", sortedServerAccounts)
             console.log("currentMenuId:", currentMenuId)
-            console.log("accounts[currentUserData.sendId][currentMenuId]: ",JSON.stringify(accounts[currentUserData.sendId][currentMenuId]))
+            console.log("accounts[currentUserData.sendId][currentMenuId]: ", accounts[currentUserData.sendId][currentMenuId])
             accounts[currentUserData.sendId][currentMenuId].forEach(
               (account, index) => {
                 console.log("accounts[currentUserData.sendId][currentMenuId] account:", account)
@@ -780,74 +780,6 @@
       // 文心智能体受 showMultipleAccounts 控制
       // 判断是否为文心智能体：actualType为9表示文心智能体
       console.log("检查文心智能体", actualType)
-      if (actualType === 9) {
-        console.log('showMultipleAccounts:', showMultipleAccounts)
-        if (showMultipleAccounts) {
-          // 生成5个固定账号
-          console.log("accounts", accounts)
-          console.log("currentUserData", currentUserData)
-        //   accounts[currentUserData.sendId][currentMenuId] = [
-        //     {
-        //       id: "wenxin_1",
-        //       name: "文心智能体账号11234",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 1,
-        //       actualType: 9, // 保存实际类型
-        //       position: 1,
-        //     },
-        //     {
-        //       id: "wenxin_2",
-        //       name: "文心智能体账号2",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 1,
-        //       actualType: 9, // 保存实际类型
-        //       position: 2,
-        //     },
-        //     {
-        //       id: "wenxin_3",
-        //       name: "文心智能体账号3",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 1,
-        //       actualType: 9, // 保存实际类型
-        //       position: 3,
-        //     },
-        //     {
-        //       id: "wenxin_4",
-        //       name: "文心智能体账号4",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 1,
-        //       actualType: 9, // 保存实际类型
-        //       position: 4,
-        //     },
-        //     {
-        //       id: "wenxin_5",
-        //       name: "文心智能体账号5",
-        //       icon: "🤖",
-        //       status: "pending",
-        //       menuId: 1,
-        //       actualType: 9, // 保存实际类型
-        //       position: 5,
-        //     },
-        //   ];
-        } else {
-          // 当 showMultipleAccounts 为 false 时，创建一个默认账号
-          accounts[currentUserData.sendId][currentMenuId] = [
-            {
-              id: "wenxin_default",
-              name: "文心智能体账号",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 1,
-            },
-          ];
-        }
-      }
 
       // 查找对应的菜单项
       const menuItem = navItems.find((item) => item.id === currentMenuId);
@@ -866,7 +798,7 @@
         // 确定需要创建的账号数量：百家号和文心智能体创建5个，其他平台创建1个
         // 判断是否为百家号或文心智能体：menuId为1表示百家号或文心智能体
         console.log("showMultipleAccounts:", showMultipleAccounts)
-        console.log('%ccurrentMenuId', 'color: yellow;', currentMenuId)
+        console.log('%ccurrentMenuId', 'color: green;', currentMenuId)
         const accountCount =
           [1, 9].includes(currentMenuId) && showMultipleAccounts
             ? 5
