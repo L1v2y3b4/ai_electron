@@ -689,50 +689,50 @@ ipcMain.handle("migrate-cookies", async (event, { sourcePartition, targetPartiti
 // 5. save_user_cookies (修复cookies保存逻辑)
 ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, acc_id, position, isMain=0 }) => {
   // 1. 处理数据格式
-  data = {
-      'type': currentNavId,
-      'authData': JSON.stringify(cookiesList),
-      'status': 1,
-      'saveType': 1,
-      'customerId': sendId,
-      'isMain': isMain,
-      'position': position
-  };
-  let cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
+  // data = {
+  //     'type': currentNavId,
+  //     'authData': JSON.stringify(cookiesList),
+  //     'status': 1,
+  //     'saveType': 1,
+  //     'customerId': sendId,
+  //     'isMain': isMain,
+  //     'position': position
+  // };
+  // let cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
   
   const headers = {
     'Content-Type': 'application/json',
     'token': token
   };
 
-  try {
-    // 1. 查询已有数据
-    // 修复axios请求格式，与解绑请求保持一致
-    const checkResponse = await axios.post(
-      loginUrl + '/content/customer/account/saveAuth',
-      data,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'token': token
-        }
-      }
-    );
+  // try {
+  //   // 1. 查询已有数据
+  //   // 修复axios请求格式，与解绑请求保持一致
+  //   const checkResponse = await axios.post(
+  //     loginUrl + '/content/customer/account/saveAuth',
+  //     data,
+  //     {
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'token': token
+  //       }
+  //     }
+  //   );
     
-    const existingAccounts = checkResponse.data;
-    let existingAccount = null;
+  //   const existingAccounts = checkResponse.data;
+  //   let existingAccount = null;
     
-    // 优先检查相同acc_id的账户，避免重复ID错误
-    if (existingAccounts && existingAccounts.length > 0) {
-      // 先查找相同acc_id的账户
-      if (acc_id) {
-        existingAccount = existingAccounts.find(account => account.acc_id === acc_id);
-      }
-      // 如果没有相同acc_id的账户，再查找相同位置的账户
-      if (!existingAccount) {
-        existingAccount = existingAccounts.find(account => account.position === position);
-      }
-    }
+  //   // 优先检查相同acc_id的账户，避免重复ID错误
+  //   if (existingAccounts && existingAccounts.length > 0) {
+  //     // 先查找相同acc_id的账户
+  //     if (acc_id) {
+  //       existingAccount = existingAccounts.find(account => account.acc_id === acc_id);
+  //     }
+  //     // 如果没有相同acc_id的账户，再查找相同位置的账户
+  //     if (!existingAccount) {
+  //       existingAccount = existingAccounts.find(account => account.position === position);
+  //     }
+  //   }
     
     // 构建保存的数据，匹配Java后端的请求格式
     // status=1 表示重新授权
@@ -747,41 +747,41 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
     };
     
     // 检查是否存在相同账户，若存在则更新，否则插入
-    if (existingAccount) {
-      console.log(existingAccount, '存在相同账户，执行更新操作:');
-      // 添加id字段进行更新
-      data.id = existingAccount.id;
+    // if (existingAccount) {
+    //   console.log(existingAccount, '存在相同账户，执行更新操作:');
+    //   // 添加id字段进行更新
+    //   data.id = existingAccount.id;
       
-      // 检查cookie是否相同，如果相同则跳过保存
-      try {
-        const existingCookies = JSON.parse(existingAccount.json_str);
-        const newCookies = JSON.parse(JSON.stringify(cookiesToSave));
-        if (JSON.stringify(existingCookies) === JSON.stringify(newCookies)) {
-          console.log('账户cookie数据相同，跳过保存');
-          return { success: true, message: '数据相同，跳过保存' };
-        }
-      } catch (e) {
-        console.log("无法比较cookie数据，继续更新");
-      }
-    } else {
-      console.log('不存在相同账户，执行插入操作');
+    //   // 检查cookie是否相同，如果相同则跳过保存
+    //   try {
+    //     const existingCookies = JSON.parse(existingAccount.json_str);
+    //     const newCookies = JSON.parse(JSON.stringify(cookiesToSave));
+    //     if (JSON.stringify(existingCookies) === JSON.stringify(newCookies)) {
+    //       console.log('账户cookie数据相同，跳过保存');
+    //       return { success: true, message: '数据相同，跳过保存' };
+    //     }
+    //   } catch (e) {
+    //     console.log("无法比较cookie数据，继续更新");
+    //   }
+    // } else {
+    //   console.log('不存在相同账户，执行插入操作');
+    // }
+    
+  // 2. 执行保存/更新操作
+  const saveResponse = await axios.post(
+    loginUrl + '/content/customer/account/saveAuth',
+    data,
+    {
+      headers
     }
-    
-    // 2. 执行保存/更新操作
-    const saveResponse = await axios.post(
-      loginUrl + '/content/customer/account/saveAuth',
-      data,
-      {
-        headers
-      }
-    );
-    
-    console.log(saveResponse.data, '======saveResponse====save_user_cookies');
-    return saveResponse.data;
-  } catch (error) {
-    console.error('保存信息错误:', error);
-    return { success: false, message: error.message };
-  }
+  );
+  
+  console.log(saveResponse.data, '======saveResponse====save_user_cookies');
+  return saveResponse.data;
+  // } catch (error) {
+  //   console.error('保存信息错误:', error);
+  //   return { success: false, message: error.message };
+  // }
 });
 
 // 6. check_user_cookies (保持原样)
