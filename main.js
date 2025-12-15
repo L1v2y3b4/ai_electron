@@ -689,7 +689,15 @@ ipcMain.handle("migrate-cookies", async (event, { sourcePartition, targetPartiti
 // 5. save_user_cookies (修复cookies保存逻辑)
 ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, acc_id, position, isMain=0 }) => {
   // 1. 处理数据格式
-  let data = {};
+  data = {
+      'type': currentNavId,
+      'authData': JSON.stringify(cookiesList),
+      'status': 1,
+      'saveType': 1,
+      'customerId': sendId,
+      'isMain': isMain,
+      'position': position
+  };
   let cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
   
   const headers = {
@@ -730,7 +738,7 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
     // status=1 表示重新授权
     data = {
       'type': currentNavId,
-      'authData': JSON.stringify(cookiesToSave),
+      'authData': JSON.stringify(cookiesList),
       'status': 1,
       'saveType': 1,
       'customerId': sendId,
