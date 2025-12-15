@@ -1112,6 +1112,7 @@
           // 获取额外参数
           const isMain = event.data.isMain || 0;
           const position = event.data.position || 1;
+          const menuId = event.data.menuId;
 
           // 将position和isMain参数保存到window对象中，以便在checkLoginStatus函数中使用
           window.currentAccountPosition = position;
@@ -1126,6 +1127,12 @@
             oldWebview.remove();
           }
           
+          // 重置对应平台的flag为false，确保每次进入都能重新获取cookie
+          const platformIndex = navItems.findIndex(item => item.id === menuId);
+          if (platformIndex !== -1) {
+            navItems[platformIndex].flag = false;
+            console.log(`重置平台 ${navItems[platformIndex].name} 的flag为false`);
+          }
           // 创建新的 webview 并设置独立分区
           const newWebview = document.createElement('webview');
           newWebview.id = "browserView";
@@ -1254,14 +1261,26 @@
                         );
                         
                         if (validCookies.length > 0) {
-                                const domain = new URL(targetUrl).hostname;
+                                const targetDomain = new URL(targetUrl).hostname;
                                 
-                                // 注入cookies时，使用baidu.com作为主要domain，确保跨子域名的cookie都能正确注入
-                                // 同时传递原始domain作为参考
+                                // 根据不同平台使用不同的domain策略
+                                let cookieDomain;
+                                let cookieTargetUrl;
+                                
+                                // 百度系平台（百家号等）
+                                if (targetDomain.includes('baidu.com') || targetDomain.includes('baijiahao.baidu.com')) {
+                                    cookieDomain = 'baidu.com'; // 百度系使用baidu.com作为主要domain
+                                    cookieTargetUrl = `https://baijiahao.baidu.com`;
+                                } else {
+                                    // 其他平台使用自身域名
+                                    cookieDomain = targetDomain;
+                                    cookieTargetUrl = targetUrl;
+                                }
+                                
                                 return window.electronAPI.setCookies({
-                                    targetUrl: `https://baijiahao.baidu.com`,
+                                    targetUrl: cookieTargetUrl,
                                     cookies: validCookies,
-                                    domain: 'baidu.com',
+                                    domain: cookieDomain,
                                     partition: `persist:account_${event.data.accountId}`
                                 }).then(resolve).catch(reject);
                             } else {
@@ -1327,39 +1346,62 @@
                 
                 // 重点：确保cookie在webview加载URL之前完成注入
                 // 1. 首先获取关键cookie，验证是否成功注入
-                const keyCookies = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'bjhStoken'];
                 
-                // 同时获取.baidu.com和baijiahao.baidu.com域名下的所有cookie
-                Promise.all([
-                    window.electronAPI.getCookies(
-                        'https://baijiahao.baidu.com', 
-                        `persist:account_${event.data.accountId}`
-                    ),
-                    window.electronAPI.getCookies(
-                        'https://baidu.com', 
-                        `persist:account_${event.data.accountId}`
-                    )
-                ]).then(([baijiahaoCookies, baiduCookies]) => {
+                // 根据不同平台使用不同的关键cookie
+                let keyCookies;
+                let cookieDomains = [];
+                const targetDomain = new URL(targetUrl).hostname;
+                
+                // 百度系平台（百家号等）
+                if (targetDomain.includes('baidu.com') || targetDomain.includes('baijiahao.baidu.com')) {
+                    keyCookies = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'bjhStoken'];
+                    cookieDomains = ['https://baijiahao.baidu.com', 'https://baidu.com'];
+                } 
+                // 搜狐平台
+                else if (targetDomain.includes('mp.sohu.com')) {
+                    keyCookies = ['userid', 'token', 'sessionid'];
+                    cookieDomains = ['https://mp.sohu.com'];
+                }
+                // 网易平台
+                else if (targetDomain.includes('mp.163.com')) {
+                    keyCookies = ['userInfo', 'sessionToken', 'cookieToken'];
+                    cookieDomains = ['https://mp.163.com'];
+                }
+                // 其他平台可以根据需要添加
+                else {
+                    keyCookies = []; // 默认不检查关键cookie
+                    cookieDomains = [targetUrl];
+                }
+                
+                // 获取对应域名下的所有cookie
+                const cookiePromises = cookieDomains.map(domain => 
+                    window.electronAPI.getCookies(domain, `persist:account_${event.data.accountId}`)
+                );
+                
+                Promise.all(cookiePromises).then(results => {
                     // 合并所有cookie并去重
-                    const allCookies = [...baijiahaoCookies, ...baiduCookies].filter((cookie, index, self) => 
+                    const allCookies = results.flat().filter((cookie, index, self) => 
                         index === self.findIndex((c) => c.name === cookie.name && c.domain === cookie.domain)
                     );
                     
                     console.log('注入后获取到的全部cookie:', allCookies.length);
                     console.log('所有cookie详情:', allCookies);
                     
-                    // 检查关键cookie是否存在
-                    const foundKeyCookies = keyCookies.filter(key => 
-                        allCookies.some(cookie => cookie.name === key)
-                    );
-                    console.log('成功注入的关键cookie:', foundKeyCookies);
-                    
-                    // 检查缺失的关键cookie
-                    const missingKeyCookies = keyCookies.filter(key => 
-                        !allCookies.some(cookie => cookie.name === key)
-                    );
-                    if (missingKeyCookies.length > 0) {
-                        console.log('缺失的关键cookie:', missingKeyCookies);
+                    // 如果有关键cookie需要检查
+                    if (keyCookies.length > 0) {
+                        // 检查关键cookie是否存在
+                        const foundKeyCookies = keyCookies.filter(key => 
+                            allCookies.some(cookie => cookie.name === key)
+                        );
+                        console.log('成功注入的关键cookie:', foundKeyCookies);
+                        
+                        // 检查缺失的关键cookie
+                        const missingKeyCookies = keyCookies.filter(key => 
+                            !allCookies.some(cookie => cookie.name === key)
+                        );
+                        if (missingKeyCookies.length > 0) {
+                            console.log('缺失的关键cookie:', missingKeyCookies);
+                        }
                     }
                     
                     // 2. 现在加载URL
@@ -1517,7 +1559,7 @@
           res = window.electronAPI.getCookies("https://mp.sohu.com", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(result);
+            cookiesList.push(...result);
             // 保存cookie信息
             const result1 = window.electronAPI.saveUserCookies({
               currentNavId,
@@ -1549,7 +1591,7 @@
           res = window.electronAPI.getCookies("https://mp.toutiao.com", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(result);
+            cookiesList.push(...result);
             // 保存cookie信息
             const result1 = window.electronAPI.saveUserCookies({
               currentNavId,
@@ -1576,7 +1618,7 @@
           res = window.electronAPI.getCookies("https://mp.sina.com.cn", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(result);
+            cookiesList.push(...result);
 
             // 保存cookie信息
             const result1 = window.electronAPI.saveUserCookies({
@@ -1603,7 +1645,7 @@
           res = window.electronAPI.getCookies("https://om.qq.com", partition);
           res.then((result) => {
             cookiesList = [];
-            cookiesList.push(result);
+            cookiesList.push(...result);
             // 保存cookie信息
             const result1 = window.electronAPI.saveUserCookies({
               currentNavId,
@@ -1634,26 +1676,27 @@
           showSuccessMessage("登录成功");
         }
         // 网易平台登录成功处理
-        if (url.includes("https://mp.163.com/login.html#/") && a && !a.flag) {
-          res = window.electronAPI.getCookies("https://mp.163.com", partition);
+        // if (url.includes("https://mp.163.com/login.html#/") && a && !a.flag) {
+        if (url.includes("mp.163.com") && !url.includes("login.html") && a && !a.flag){
+          res = window.electronAPI.getCookies("https://mp.163.com/#/", partition);
           console.log("进入到网易平台登录成功处理");
           res.then((result) => {
             cookiesList = [];
             console.log("获取到的cookies:", result);
-            if (result && Array.isArray(result)) {
-              cookiesList.push(result); // 使用spread运算符扁平化数组
-            }
+            // if (result && Array.isArray(result)) {
+            cookiesList.push(...result); // 使用spread运算符扁平化数组
+            // }
             
-            cookiesList.push(result);
+            // cookiesList.push(result);
             // 保存cookie信息
-            const result1 = window.electronAPI.saveUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              position: currentPosition,
-              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
-            });
+            // const result1 = window.electronAPI.saveUserCookies({
+            //   currentNavId,
+            //   cookiesList,
+            //   token,
+            //   sendId,
+            //   position: currentPosition,
+            //   // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            // });
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
