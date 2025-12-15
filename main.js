@@ -687,7 +687,7 @@ ipcMain.handle("migrate-cookies", async (event, { sourcePartition, targetPartiti
 });
 
 // 5. save_user_cookies (修复cookies保存逻辑)
-ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, acc_id, position, isMain }) => {
+ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, token, sendId, acc_id, position, isMain=0 }) => {
   // 1. 处理数据格式
   let data = {};
   let cookiesToSave = Array.isArray(cookiesList) ? cookiesList : [cookiesList];
@@ -698,14 +698,15 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
   };
 
   try {
-    // 1. 查询已有数据（注意：这里只是为了查询，实际保存通过POST请求完成）
+    // 1. 查询已有数据
+    // 修复axios请求格式，与解绑请求保持一致
     const checkResponse = await axios.post(
       loginUrl + '/content/customer/account/saveAuth',
+      data,
       {
-        headers: { 'token': token },
-        params: {
-          type: currentNavId,
-          customerId: sendId
+        headers: {
+          'Content-Type': 'application/json',
+          'token': token
         }
       }
     );
@@ -725,15 +726,16 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
       }
     }
     
-    // 构建保存的数据
+    // 构建保存的数据，匹配Java后端的请求格式
+    // status=1 表示重新授权
     data = {
       'type': currentNavId,
       'authData': JSON.stringify(cookiesToSave),
-      'time': Math.floor(Date.now() / 1000).toString(),
-      'send_id': sendId,
-      'acc_id': acc_id,
-      'position': position,
-      'is_main': isMain
+      'status': 1,
+      'saveType': 1,
+      'customerId': sendId,
+      'isMain': isMain,
+      'position': position
     };
     
     // 检查是否存在相同账户，若存在则更新，否则插入

@@ -1689,14 +1689,14 @@
             
             // cookiesList.push(result);
             // 保存cookie信息
-            // const result1 = window.electronAPI.saveUserCookies({
-            //   currentNavId,
-            //   cookiesList,
-            //   token,
-            //   sendId,
-            //   position: currentPosition,
-            //   // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
-            // });
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList,
+              token,
+              sendId,
+              position: currentPosition,
+              // type: currentNavId // 添加缺少的type字段，使用currentNavId作为type值
+            });
             const result2 = window.electronAPI.checkUserCookies({
               currentNavId,
               cookiesList,
@@ -1877,15 +1877,15 @@
             // 初始化cookiesList变量
             // const cookiesList = result
             // 保存cookie信息
-            // const result1 = window.electronAPI.saveUserCookies({
-            //   currentNavId,
-            //   cookiesList: result,
-            //   token,
-            //   sendId,
-            //   acc_id: accountId,
-            //   position: currentPosition,
-            //   is_main: window.currentAccountIsMain || 0
-            // });
+            const result1 = window.electronAPI.saveUserCookies({
+              currentNavId,
+              cookiesList: result,
+              token,
+              sendId,
+              acc_id: accountId,
+              position: currentPosition,
+              // is_main: window.currentAccountIsMain || 0
+            });
             
             
             // 验证cookie信息
