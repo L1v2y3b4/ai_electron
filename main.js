@@ -31,10 +31,10 @@ let agent_cookies_accounts = {1:[],2:[],3:[],4:[],5:[]}
 const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://39.96.205.150:19020'
 // const loginUrl = 'http://192.168.0.38:9020'
-// const checkUrl = "http://47.93.80.212:8000/api";
+const checkUrl = "http://47.93.80.212:8000/api";
 // const checkUrl = "http://127.0.0.1:8000/api";
 // const checkUrl = "http://60.205.188.121:8000/api"
-const checkUrl = "http://192.168.0.35:8000/api"
+// const checkUrl = "http://192.168.0.35:8000/api"
 
 // 请求去重机制  
 const requestTracker = new Map();
