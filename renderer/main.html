@@ -1101,7 +1101,7 @@
         checkLoginStatus(currentUrl);
       });
 
-      window.addEventListener("message", (event) => {
+      window.addEventListener("message", async (event) => {
         if (event.data.type === "enterWebview") {
           // 来自hub页面：用户点击了账号卡片，进入webview
           currentViewMode = "webview";
@@ -1133,12 +1133,28 @@
             navItems[platformIndex].flag = false;
             console.log(`重置平台 ${navItems[platformIndex].name} 的flag为false`);
           }
+          
+          // 确定partition名称
+          const partitionName = `persist:account_${event.data.accountId}`;
+          console.log(`准备使用partition: ${partitionName}`);
+          
+          // 如果是未授权账号（pending开头），先清除该partition的缓存
+          if (event.data.accountId && event.data.accountId.toString().startsWith('pending')) {
+            console.log(`检测到未授权账号，清除 ${partitionName} 的缓存`);
+            try {
+              await window.electronAPI.clearCookies({ partition: partitionName });
+              console.log(`已清除 ${partitionName} 的缓存`);
+            } catch (clearError) {
+              console.error(`清除 ${partitionName} 缓存失败:`, clearError);
+            }
+          }
+          
           // 创建新的 webview 并设置独立分区
           const newWebview = document.createElement('webview');
           newWebview.id = "browserView";
           newWebview.style.cssText = "display:inline-flex; width:100%; height:100%";
           // 为不同账号创建独立的分区
-          newWebview.partition = `persist:account_${event.data.accountId}`;
+          newWebview.partition = partitionName;
           newWebview.setAttribute('data-account-id', event.data.accountId);
           newWebview.setAttribute("disablewebsecurity", "");
           newWebview.setAttribute("webpreferences", "javascript=yes, contextIsolation=yes");

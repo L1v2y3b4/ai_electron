@@ -72,36 +72,34 @@ ipcMain.on('set-webview-ua', (event, userAgent) => {
   webviewUserAgents.set(webviewId, userAgent);
 });
 
-function clearCache(partition) {
+async function clearCache(partition) {
   try {
-    // 清除默认 session 的所有 cookies
     partition = partition || 'persist:zhongshang'
-    session.fromPartition(partition).clearStorageData({
-      storages: ['cookies', 'localstorage', 'indexdb']
-    }).then(() => {
-      console.log('默认分区所有数据已清除')
-    }).catch(err => {
-      console.error('清除默认分区数据失败:', err);
-    });
-
     const ses = session.fromPartition(partition);
     
-    ses.clearCache().then(() => {
-      console.log('清除缓存成功');
-    }).catch(err => {
-      console.error('清除缓存失败', err);
-    });
-
-    ses.clearStorageData({
-      storages: ['cookies', 'localstorage', 'indexdb'],
-      quotas: ['temporary', 'persistent']
-    }).then(() => {
-      console.log('所有存储数据已清除');
-    }).catch(err => {
-      console.error('清除存储数据失败:', err);
-    });
+    console.log(`开始清除 ${partition} 的缓存和数据...`);
+    
+    // 并行执行所有清理操作
+    await Promise.all([
+      ses.clearCache().then(() => {
+        console.log(`${partition} 缓存清除成功`);
+      }).catch(err => {
+        console.error(`${partition} 清除缓存失败:`, err);
+      }),
+      
+      ses.clearStorageData({
+        storages: ['cookies', 'localstorage', 'indexdb'],
+        quotas: ['temporary', 'persistent']
+      }).then(() => {
+        console.log(`${partition} 存储数据清除成功`);
+      }).catch(err => {
+        console.error(`${partition} 清除存储数据失败:`, err);
+      })
+    ]);
+    
+    console.log(`${partition} 所有缓存和数据清除完成`);
   } catch (error) {
-    console.error('clearCache执行失败:', error);
+    console.error(`clearCache执行失败 (${partition}):`, error);
   }
 }
 
@@ -344,7 +342,8 @@ ipcMain.handle('get-cookies', async (event, domain, partition = null) => {
 
 ipcMain.handle("clear-cookies", async (event, { partition }) => {
     const temp_partition = partition || 'persist:zhongshang'
-    clearCache(temp_partition)
+    await clearCache(temp_partition)
+    return { success: true, partition: temp_partition }
 })
 
 // 2. 修复 set-cookies (增强版)
@@ -1020,13 +1019,40 @@ ipcMain.handle('clear-account-cookies', async (event, { accountId, menuId }) => 
 // 10. 新增 open-url-in-new-window (智能体兼容)
 ipcMain.on('open-url-in-new-window', async (event, data) => {
   const { url, partition, accountId, sendId, position, _type, current_cookie } = data;
-  console.log(sendId, position, _type)
+  console.log('打开新窗口:', { sendId, position, _type, accountId, partition });
+  
+  // 确定使用的partition名称
+  let accountPartition;
+  if (accountId) {
+    accountPartition = `persist:account_${accountId}`;
+  } else if (partition) {
+    accountPartition = `persist:${partition}`;
+  } else {
+    accountPartition = 'persist:zhongshang';
+  }
+  
+  console.log(`使用partition: ${accountPartition}`);
+  
+  // 先清除该partition的所有缓存和数据（确保每次打开都是全新的）
+  try {
+    const ses = session.fromPartition(accountPartition);
+    await ses.clearCache();
+    await ses.clearStorageData({
+      storages: ['cookies', 'localstorage', 'indexdb'],
+      quotas: ['temporary', 'persistent']
+    });
+    console.log(`已清除 ${accountPartition} 的缓存和数据`);
+  } catch (clearError) {
+    console.error(`清除 ${accountPartition} 缓存失败:`, clearError);
+  }
+  
+  // 创建窗口
   const mainState = windowStateKeeper({
     defaultWidth: 1200,
     defaultHeight: 800,
     defaultCenter: true
   });
-
+  
   const popupWindow = new BrowserWindow({
     x: mainState.x,
     y: mainState.y,
@@ -1038,21 +1064,11 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      partition: partition ? `persist:${partition}` : undefined,
+      partition: accountPartition,
       webviewTag: false
     },
     backgroundColor: '#ffffff'
   });
-
-  // 兼容两种分区命名方式
-  let accountPartition;
-  if (accountId) {
-    accountPartition = `persist:account_${accountId}`;
-  } else if (partition) {
-    accountPartition = `persist:${partition}`;
-  } else {
-    accountPartition = 'persist:zhongshang';
-  }
   
   const ses = session.fromPartition(accountPartition);
 
@@ -1090,18 +1106,28 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
       if (agent_cookies && agent_cookies.length > 0) {
         for (const j of agent_cookies) {
           try {
+            // 验证并修正domain字段
+            let domain = j.domain;
+            if (!domain || domain.trim() === '' || domain === 'null' || domain === 'undefined') {
+              domain = '.baidu.com';
+            }
+            // 确保domain以点开头（除非是精确域名）
+            if (domain && !domain.startsWith('.') && domain !== 'baidu.com' && domain !== 'agents.baidu.com') {
+              domain = '.' + domain;
+            }
+            
             await ses.cookies.set({
               url: "https://agents.baidu.com",
               name: j.name,
               value: j.value,
-              domain: j.domain || ".baidu.com",
-              secure: j.secure || true,
+              domain: domain,
+              secure: j.secure !== false,
               httpOnly: j.httpOnly || false,
               path: j.path || "/",
               expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000
             });
           } catch (cookieError) {
-            console.error('设置智能体cookie失败:', cookieError);
+            console.error('设置智能体cookie失败:', cookieError, '- Cookie:', j.name, 'Domain:', j.domain);
           }
         }
         console.log('Agent cookies set for partition:', accountPartition);
@@ -1642,7 +1668,17 @@ ipcMain.handle('get_user_list', async (event, token, khName = '', khUsername = '
 
 // ============ 应用启动 ============
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  console.log('应用启动，开始清除所有缓存...');
+  
+  // 清除默认partition的缓存
+  try {
+    await clearCache('persist:zhongshang');
+    console.log('默认partition缓存清除完成');
+  } catch (error) {
+    console.error('清除默认partition缓存失败:', error);
+  }
+  
   session.fromPartition('persist:zhongshang').setCertificateVerifyProc((request, callback) => {
     callback(0); // 强制信任所有证书（不安全！）
   });

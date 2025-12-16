@@ -497,15 +497,6 @@
       } else if (event.data.type === "accountAuthorized") {
         // 账号授权成功，刷新账号状态
         console.log("收到账号授权成功消息，刷新账号状态");
-        console.log("授权成功的用户ID:", event.data.userId);
-        
-        // 更新currentUserData.sendId，确保后续API调用有正确的userId
-        if (currentUserData && event.data.userId) {
-          currentUserData.sendId = event.data.userId;
-        } else if (event.data.userId) {
-          currentUserData = { sendId: event.data.userId };
-        }
-        
         debouncedUpdateAccountStatus();
       }
     });
@@ -614,12 +605,9 @@
                   const accIdExistsOnServer = hasBoundAccId ? allServerAccIds.has(account.serverData.acc_id) : false;
                   
                   // 只有从未绑定过的账号，或者已绑定且acc_id存在的账号，才允许匹配
-                  // 允许以下情况的账号匹配：
-                  // 1. 从未绑定过的账号（hasEverBound为false且没有绑定的acc_id）
-                  // 2. 已绑定的账号（hasBoundAccId为true）
-                  // 3. 已解绑的账号（hasEverBound为true但没有serverData）- 允许重新匹配新的授权数据
+                  // 一旦曾经绑定过又解绑的账号（hasEverBound为true且没有serverData），永远不再匹配其他账号
                   console.log("%chasBoundAccId:",'color:red;',hasBoundAccId)
-                  if ((!account.hasEverBound && !hasBoundAccId) || (hasBoundAccId) || (account.hasEverBound && !account.serverData)) {
+                  if ((!account.hasEverBound && !hasBoundAccId) || (hasBoundAccId)) {
                     // 主账号位置（position=1）只能匹配服务器返回的is_main=1或true的账号
                     console.log('%c其他位置按position匹配服务器账号', 'color:blue;', localPosition,currentMenuId)
                     if (localPosition === 1 && currentMenuId === 1) {
