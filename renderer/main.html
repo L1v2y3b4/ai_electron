@@ -1721,54 +1721,36 @@
           });
         }
         if (url.includes("http://zs.open.chuangmaedu.com/openPlatform/callback") && a && !a.flag ) {
-          res = window.electronAPI.getCookies(
-            "http://zs.open.chuangmaedu.com",
-            partition
-          );
-          res.then((result) => {
-            cookiesList = [];
-            cookiesList.push(result);
-            
-            // 从 iframe 获取传递过来的 acc_id 等信息
-            const iframe = document.getElementById("hubFrame");
-            let acc_id = null;
-            let position = 1;
-            let isMain = 0;
-            try {
-              const hubContent = iframe.contentWindow;
-              if (hubContent && hubContent.currentAccountId) acc_id = hubContent.currentAccountId;
-              if (hubContent && hubContent.currentAccount) {
-                position = hubContent.currentAccount.position || 1;
-                isMain = hubContent.currentAccount.isMain || 0;
-              }
-            } catch (e) {
-              console.log("无法从hub获取账户信息");
-            }
-            
-            // 保存cookie信息
-            const result1 = window.electronAPI.saveUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              acc_id: acc_id,
-              position: position,
-              is_main: isMain
+            const data = {
+                'type': currentNavId,
+                'json_str': sendId,
+                'time': Math.floor(Date.now() / 1000).toString(),
+                'send_id': sendId,
+                'position': currentPosition
+            };
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            fetch('http:///47.93.80.212:8000/api/desktop/check/sign/', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            }).then(data => {
+                // 请求成功时处理响应数据
+                console.log('微信公众号响应数据:', data.data);
+                const cookiesList = {'appid': data.data };
+                // const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
+                return data; // 返回处理后的数据
+            }).catch(error => {
+                // 请求失败时处理错误
+                console.error('HTTP error! status:', error);
+                return null;
             });
-            
-            // 验证cookie信息
-            const result2 = window.electronAPI.checkUserCookies({
-              currentNavId,
-              cookiesList,
-              token,
-              sendId,
-              acc_id: acc_id,
-              position: position,
-              is_main: isMain
-            });
-            a.flag = true;
-            showSuccessMessage("登录成功");
-            
             // 通知 hub 页面刷新账号状态
             const hubFrame = document.getElementById("hubFrame");
             if (hubFrame && hubFrame.contentWindow) {
@@ -1778,7 +1760,8 @@
                 userId: sendId
               }, "*");
             }
-          });
+            a.flag = true;
+            showSuccessMessage("登录成功");
         }
       }
 
