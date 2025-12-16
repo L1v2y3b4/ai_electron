@@ -1127,11 +1127,18 @@
             oldWebview.remove();
           }
           
-          // 重置对应平台的flag为false，确保每次进入都能重新获取cookie
+          // 根据账号状态设置flag
           const platformIndex = navItems.findIndex(item => item.id === menuId);
           if (platformIndex !== -1) {
-            navItems[platformIndex].flag = false;
-            console.log(`重置平台 ${navItems[platformIndex].name} 的flag为false`);
+            // 如果是未授权账号（pending开头），重置flag为false，允许授权流程
+            if (event.data.accountId && event.data.accountId.toString().startsWith('pending')) {
+              navItems[platformIndex].flag = false;
+              console.log(`未授权账号，重置平台 ${navItems[platformIndex].name} 的flag为false`);
+            } else {
+              // 已授权账号，设置flag为true，避免触发授权流程
+              navItems[platformIndex].flag = true;
+              console.log(`已授权账号，设置平台 ${navItems[platformIndex].name} 的flag为true`);
+            }
           }
           
           // 确定partition名称
@@ -1223,8 +1230,46 @@
           } else if (menuItem) {
             if (event.data.menuId === 4) {
               targetUrl = menuItem.url + sendId;
+            } else if (event.data.menuId === 2) {
+              // 搜狐：如果有acc_id（已授权），先访问登录页激活session
+              if (event.data.acc_id) {
+                targetUrl = "https://mp.sohu.com/mpfe/v4/login";
+                console.log('搜狐已授权账号，先访问登录页激活session');
+                window.needRedirectSohu = true;
+              } else {
+                targetUrl = menuItem.url;
+                console.log('搜狐未授权账号，加载登录页');
+              }
+            } else if (event.data.menuId === 3) {
+              // 头条：如果有acc_id（已授权），先访问登录页激活session
+              if (event.data.acc_id) {
+                targetUrl = "https://mp.toutiao.com/auth/page/login";
+                console.log('头条已授权账号，先访问登录页激活session');
+                window.needRedirectToutiao = true;
+              } else {
+                targetUrl = menuItem.url;
+                console.log('头条未授权账号，加载登录页');
+              }
+            } else if (event.data.menuId === 5) {
+              // 新浪：如果有acc_id（已授权），先访问登录页激活session
+              if (event.data.acc_id) {
+                targetUrl = "https://mp.sina.com.cn/";
+                console.log('新浪已授权账号，先访问登录页激活session');
+                window.needRedirectSina = true;
+              } else {
+                targetUrl = menuItem.url;
+                console.log('新浪未授权账号，加载登录页');
+              }
             } else if (event.data.menuId === 8) {
-              targetUrl = menuItem.url + sendId;
+              // 网易：如果有acc_id（已授权），先访问登录页激活session
+              if (event.data.acc_id) {
+                targetUrl = "https://mp.163.com/login.html#/";
+                console.log('网易已授权账号，先访问登录页激活session');
+                window.needRedirectToNetease = true;
+              } else {
+                targetUrl = menuItem.url + sendId;
+                console.log('网易未授权账号，加载登录页');
+              }
             } else {
               targetUrl = menuItem.url;
             }
@@ -1245,6 +1290,8 @@
                         let cookiesList;
                         if (typeof event.data.cookies === 'string') {
                             console.log('处理字符串格式的cookies数据');
+                            console.log('原始cookies长度:', event.data.cookies.length);
+                            console.log('原始cookies前200字符:', event.data.cookies.substring(0, 200));
                             
                             // 移除外部引号
                             let cookieStr = event.data.cookies.replace(/^"|"$/g, '');
@@ -1256,6 +1303,7 @@
                             // 尝试找到有效的JSON结束位置（处理可能的截断）
                             try {
                                 cookiesList = JSON.parse(cookieStr);
+                                console.log('首次JSON解析成功');
                             } catch (parseError) {
                                 console.error('首次JSON解析失败，尝试修复格式:', parseError);
                                 
@@ -1266,11 +1314,17 @@
                                     console.log('尝试使用正则提取的数组部分进行解析');
                                     cookiesList = JSON.parse(arrayMatch[0]);
                                 } else {
-                                    throw new Error('无法提取有效的JSON数组');
+                                    // 最后尝试：直接作为数组处理
+                                    console.log('尝试直接作为数组处理');
+                                    cookiesList = [];
                                 }
                             }
-                        } else {
+                        } else if (Array.isArray(event.data.cookies)) {
                             cookiesList = event.data.cookies;
+                            console.log('cookies已是数组格式');
+                        } else {
+                            cookiesList = [];
+                            console.log('cookies格式未知，使用空数组');
                         }
                         
                         // 确保cookiesList是数组
@@ -1287,6 +1341,8 @@
                             cookie && typeof cookie === 'object' && cookie.name && cookie.value
                         );
                         
+                        console.log('有效的cookie数量:', validCookies.length);
+                        
                         if (validCookies.length > 0) {
                                 const targetDomain = new URL(targetUrl).hostname;
                                 
@@ -1295,7 +1351,7 @@
                                 let cookieTargetUrl;
                                 
                                 // 百度系平台（百家号等）
-                                if (targetDomain.includes('baidu.com') || targetDomain.includes('baijiahao.baidu.com')) {
+                                if (targetDomain.includes('baidu.com') || targetDomain.includes('baijiahao.baidu.com') || targetDomain.includes('agents.baidu.com')) {
                                     cookieDomain = 'baidu.com'; // 百度系使用baidu.com作为主要domain
                                     cookieTargetUrl = `https://baijiahao.baidu.com`;
                                 } else {
@@ -1304,12 +1360,16 @@
                                     cookieTargetUrl = targetUrl;
                                 }
                                 
+                                console.log('准备注入cookies，数量:', validCookies.length, '到partition:', `persist:account_${event.data.accountId}`);
                                 return window.electronAPI.setCookies({
                                     targetUrl: cookieTargetUrl,
                                     cookies: validCookies,
                                     domain: cookieDomain,
                                     partition: `persist:account_${event.data.accountId}`
-                                }).then(resolve).catch(reject);
+                                }).then(result => {
+                                    console.log('cookies注入结果:', result);
+                                    resolve();
+                                }).catch(reject);
                             } else {
                                 console.warn('未找到有效的cookie对象，跳过注入');
                                 resolve();
@@ -1338,7 +1398,32 @@
                         
                         if (matchedAccount) {
                             try {
-                                const savedCookies = JSON.parse(matchedAccount.cookies);
+                                console.log('matchedAccount.cookies类型:', typeof matchedAccount.cookies);
+                                console.log('matchedAccount.cookies长度:', matchedAccount.cookies ? matchedAccount.cookies.length : 0);
+                                
+                                let savedCookies;
+                                if (typeof matchedAccount.cookies === 'string') {
+                                    // 尝试解析JSON字符串
+                                    try {
+                                        savedCookies = JSON.parse(matchedAccount.cookies);
+                                    } catch (firstParseError) {
+                                        console.warn('首次JSON解析失败，尝试处理转义字符:', firstParseError);
+                                        // 尝试处理转义字符
+                                        let cookieStr = matchedAccount.cookies.replace(/^"|"$/g, '');
+                                        cookieStr = cookieStr.replace(/\\"/g, '"');
+                                        try {
+                                            savedCookies = JSON.parse(cookieStr);
+                                        } catch (secondParseError) {
+                                            console.error('第二次JSON解析也失败:', secondParseError);
+                                            savedCookies = [];
+                                        }
+                                    }
+                                } else if (Array.isArray(matchedAccount.cookies)) {
+                                    savedCookies = matchedAccount.cookies;
+                                } else {
+                                    savedCookies = [];
+                                }
+                                
                                 if (savedCookies && savedCookies.length > 0) {
                                     console.log('从auth/accounts获取到cookie，数量:', savedCookies.length);
                                     const domain = new URL(targetUrl).hostname;
@@ -1356,7 +1441,7 @@
                                     return
                                 }
                             } catch (parseError) {
-                                console.error('解析cookie失败:', parseError);
+                                console.error('处理cookie时出错:', parseError);
                             }
                         }
                     }
@@ -1372,74 +1457,86 @@
                 console.log('cookie处理完成，准备加载URL');
                 
                 // 重点：确保cookie在webview加载URL之前完成注入
-                // 1. 首先获取关键cookie，验证是否成功注入
-                
-                // 根据不同平台使用不同的关键cookie
-                let keyCookies;
-                let cookieDomains = [];
-                const targetDomain = new URL(targetUrl).hostname;
-                
-                // 百度系平台（百家号等）
-                if (targetDomain.includes('baidu.com') || targetDomain.includes('baijiahao.baidu.com')) {
-                    keyCookies = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'bjhStoken'];
-                    cookieDomains = ['https://baijiahao.baidu.com', 'https://baidu.com'];
-                } 
-                // 搜狐平台
-                else if (targetDomain.includes('mp.sohu.com')) {
-                    keyCookies = ['userid', 'token', 'sessionid'];
-                    cookieDomains = ['https://mp.sohu.com'];
-                }
-                // 网易平台
-                else if (targetDomain.includes('mp.163.com')) {
-                    keyCookies = ['userInfo', 'sessionToken', 'cookieToken'];
-                    cookieDomains = ['https://mp.163.com'];
-                }
-                // 其他平台可以根据需要添加
-                else {
-                    keyCookies = []; // 默认不检查关键cookie
-                    cookieDomains = [targetUrl];
-                }
-                
-                // 获取对应域名下的所有cookie
-                const cookiePromises = cookieDomains.map(domain => 
-                    window.electronAPI.getCookies(domain, `persist:account_${event.data.accountId}`)
-                );
-                
-                Promise.all(cookiePromises).then(results => {
-                    // 合并所有cookie并去重
-                    const allCookies = results.flat().filter((cookie, index, self) => 
-                        index === self.findIndex((c) => c.name === cookie.name && c.domain === cookie.domain)
-                    );
+                // 添加延迟以确保cookies完全写入分区
+                setTimeout(() => {
+                    // 1. 首先获取关键cookie，验证是否成功注入
                     
-                    console.log('注入后获取到的全部cookie:', allCookies.length);
-                    console.log('所有cookie详情:', allCookies);
+                    // 根据不同平台使用不同的关键cookie
+                    let keyCookies;
+                    let cookieDomains = [];
+                    const targetDomain = new URL(targetUrl).hostname;
                     
-                    // 如果有关键cookie需要检查
-                    if (keyCookies.length > 0) {
-                        // 检查关键cookie是否存在
-                        const foundKeyCookies = keyCookies.filter(key => 
-                            allCookies.some(cookie => cookie.name === key)
-                        );
-                        console.log('成功注入的关键cookie:', foundKeyCookies);
-                        
-                        // 检查缺失的关键cookie
-                        const missingKeyCookies = keyCookies.filter(key => 
-                            !allCookies.some(cookie => cookie.name === key)
-                        );
-                        if (missingKeyCookies.length > 0) {
-                            console.log('缺失的关键cookie:', missingKeyCookies);
-                        }
+                    // 百度系平台（百家号等）
+                    if (targetDomain.includes('baidu.com') || targetDomain.includes('baijiahao.baidu.com') || targetDomain.includes('agents.baidu.com')) {
+                        keyCookies = ['BDUSS', 'BDUSS_BFESS', 'BAIDUID', 'BAIDUID_BFESS', 'bjhStoken'];
+                        cookieDomains = ['https://baijiahao.baidu.com', 'https://baidu.com', 'https://agents.baidu.com'];
+                    } 
+                    // 搜狐平台
+                    else if (targetDomain.includes('mp.sohu.com')) {
+                        keyCookies = ['userid', 'token', 'sessionid'];
+                        cookieDomains = ['https://mp.sohu.com'];
+                    }
+                    // 网易平台
+                    else if (targetDomain.includes('mp.163.com')) {
+                        keyCookies = ['userInfo', 'sessionToken', 'cookieToken'];
+                        cookieDomains = ['https://mp.163.com'];
+                    }
+                    // 其他平台可以根据需要添加
+                    else {
+                        keyCookies = []; // 默认不检查关键cookie
+                        cookieDomains = [targetUrl];
                     }
                     
-                    // 2. 现在加载URL
-                    newWebview.src = targetUrl;
-                }).catch(error => {
-                    console.error('获取注入后的cookie失败:', error);
-                    // 即使获取cookie失败，仍继续加载URL
-                    newWebview.src = targetUrl;
-                });
+                    // 获取对应域名下的所有cookie
+                    const cookiePromises = cookieDomains.map(domain => 
+                        window.electronAPI.getCookies(domain, `persist:account_${event.data.accountId}`)
+                    );
+                    
+                    Promise.all(cookiePromises).then(results => {
+                        // 合并所有cookie并去重
+                        const allCookies = results.flat().filter((cookie, index, self) => 
+                            index === self.findIndex((c) => c.name === cookie.name && c.domain === cookie.domain)
+                        );
+                        
+                        console.log('注入后获取到的全部cookie:', allCookies.length);
+                        console.log('所有cookie详情:', allCookies);
+                        
+                        // 如果有关键cookie需要检查
+                        if (keyCookies.length > 0) {
+                            // 检查关键cookie是否存在
+                            const foundKeyCookies = keyCookies.filter(key => 
+                                allCookies.some(cookie => cookie.name === key)
+                            );
+                            console.log('成功注入的关键cookie:', foundKeyCookies);
+                            
+                            // 检查缺失的关键cookie
+                            const missingKeyCookies = keyCookies.filter(key => 
+                                !allCookies.some(cookie => cookie.name === key)
+                            );
+                            if (missingKeyCookies.length > 0) {
+                                console.log('缺失的关键cookie:', missingKeyCookies);
+                            }
+                        }
+                        
+                        // 2. 现在加载URL - 确保webview已准备好
+                        console.log('开始加载URL:', targetUrl);
+                        // 再次延迟以确保webview完全初始化
+                        setTimeout(() => {
+                            newWebview.src = targetUrl;
+                            console.log('URL已设置到webview');
+                        }, 100);
+                    }).catch(error => {
+                        console.error('获取注入后的cookie失败:', error);
+                        // 即使获取cookie失败，仍继续加载URL
+                        console.log('继续加载URL（即使cookie获取失败）:', targetUrl);
+                        setTimeout(() => {
+                            newWebview.src = targetUrl;
+                        }, 100);
+                    });
+                }, 500); // 延迟500ms确保cookies完全写入
             }).catch(error => {
                 console.error('cookie注入过程中出现错误:', error);
+                console.log('继续加载URL（即使cookie注入出错）:', targetUrl);
                 newWebview.src = targetUrl; // 任何错误都继续加载URL
             });
           }
@@ -1620,6 +1717,15 @@
             a.flag = true;
           });
           showSuccessMessage("登录成功");
+          // 通知hub页面账号授权成功
+          const hubFrame1 = document.getElementById("hubFrame");
+          if (hubFrame1 && hubFrame1.contentWindow) {
+            hubFrame1.contentWindow.postMessage({
+              type: "accountAuthorized",
+              menuId: currentNavId,
+              userId: sendId
+            }, "*");
+          }
           
         }
         if ((url.includes("https://mp.toutiao.com/profile_v4/index") ||"profile_v4/index".includes(url)) &&a &&!a.flag) {
@@ -1648,6 +1754,15 @@
             a.flag = true;
           });
           showSuccessMessage("登录成功");
+          // 通知hub页面账号授权成功
+          const hubFrame2 = document.getElementById("hubFrame");
+          if (hubFrame2 && hubFrame2.contentWindow) {
+            hubFrame2.contentWindow.postMessage({
+              type: "accountAuthorized",
+              menuId: currentNavId,
+              userId: sendId
+            }, "*");
+          }
         }
         if (url.includes("https://mp.sina.com.cn/#") && a && !a.flag) {
           res = window.electronAPI.getCookies("https://mp.sina.com.cn", partition);
@@ -1675,6 +1790,15 @@
             a.flag = true;
           });
           showSuccessMessage("登录成功");
+          // 通知hub页面账号授权成功
+          const hubFrame3 = document.getElementById("hubFrame");
+          if (hubFrame3 && hubFrame3.contentWindow) {
+            hubFrame3.contentWindow.postMessage({
+              type: "accountAuthorized",
+              menuId: currentNavId,
+              userId: sendId
+            }, "*");
+          }
         }
         if (url.includes("https://om.qq.com/main") && a && !a.flag) {
           res = window.electronAPI.getCookies("https://om.qq.com", partition);
@@ -1709,7 +1833,56 @@
             a.flag = true;
           });
           showSuccessMessage("登录成功");
+          // 通知hub页面账号授权成功
+          const hubFrame4 = document.getElementById("hubFrame");
+          if (hubFrame4 && hubFrame4.contentWindow) {
+            hubFrame4.contentWindow.postMessage({
+              type: "accountAuthorized",
+              menuId: currentNavId,
+              userId: sendId
+            }, "*");
+          }
         }
+        // 搜狐平台：如果是登录页且需要重定向，则重定向到内容管理页
+        if (url.includes("mp.sohu.com/mpfe/v4/login") && window.needRedirectSohu && a && !a.flag) {
+          console.log('搜狐已授权账号登录页加载完成，准备重定向到内容管理页');
+          const webview = document.getElementById('browserView');
+          setTimeout(() => {
+            webview.src = "https://mp.sohu.com/mpfe/v4/contentManagement/first/page";
+            window.needRedirectSohu = false;
+          }, 2000);
+        }
+        
+        // 头条平台：如果是登录页且需要重定向，则重定向到个人中心
+        if (url.includes("mp.toutiao.com/auth/page/login") && window.needRedirectToutiao && a && !a.flag) {
+          console.log('头条已授权账号登录页加载完成，准备重定向到个人中心');
+          const webview = document.getElementById('browserView');
+          setTimeout(() => {
+            webview.src = "https://mp.toutiao.com/profile_v4/index";
+            window.needRedirectToutiao = false;
+          }, 2000);
+        }
+        
+        // 新浪平台：如果是登录页且需要重定向，则重定向到主页
+        if (url.includes("mp.sina.com.cn/") && !url.includes("/#") && window.needRedirectSina && a && !a.flag) {
+          console.log('新浪已授权账号登录页加载完成，准备重定向到主页');
+          const webview = document.getElementById('browserView');
+          setTimeout(() => {
+            webview.src = "https://mp.sina.com.cn/#";
+            window.needRedirectSina = false;
+          }, 2000);
+        }
+        
+        // 网易平台：如果是登录页且需要重定向，则重定向到主页
+        if (url.includes("mp.163.com/login.html") && window.needRedirectToNetease && a && !a.flag) {
+          console.log('网易已授权账号登录页加载完成，准备重定向到主页');
+          const webview = document.getElementById('browserView');
+          setTimeout(() => {
+            webview.src = "https://mp.163.com/#/";
+            window.needRedirectToNetease = false;
+          }, 2000);
+        }
+        
         // 网易平台登录成功处理
         // if (url.includes("https://mp.163.com/login.html#/") && a && !a.flag) {
         if (url.includes("mp.163.com") && !url.includes("login.html") && a && !a.flag){

@@ -1328,6 +1328,8 @@
               if (foundAccount) {
                 foundAccount.status = "pending";
                 delete foundAccount.serverData;
+                // 重置hasEverBound属性，允许重新授权时匹配新的服务器数据
+                foundAccount.hasEverBound = false;
                 // 确保isMain值正确：百家号/文心智能体的第一个账号（position=1）isMain=1，其他为0
                 foundAccount.isMain = currentMenuId === 1 ? (foundAccount.position === 1 ? 1 : 0) : 0;
 
