@@ -49,6 +49,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 修复：添加 enterWebview 函数
   enterWebview: (data) => ipcRenderer.send('enter-webview', data),
-  checkBlueVPackage: (userId) => ipcRenderer.invoke('check-bluev-package', userId)
+  checkBlueVPackage: (userId) => ipcRenderer.invoke('check-bluev-package', userId),
+
+  showGlobalLoading: () => ipcRenderer.invoke('show-global-loading'),
+  hideGlobalLoading: () => ipcRenderer.invoke('hide-global-loading')
 
 });

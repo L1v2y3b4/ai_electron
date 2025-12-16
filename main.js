@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, session, dialog, Menu, screen  } = require('electron');
 const path = require('path');
 const windowStateKeeper = require('electron-window-state');
 const axios = require('axios');
@@ -35,6 +35,9 @@ const checkUrl = "http://47.93.80.212:8000/api";
 // const checkUrl = "http://127.0.0.1:8000/api";
 // const checkUrl = "http://60.205.188.121:8000/api"
 // const checkUrl = "http://192.168.0.35:8000/api"
+
+// 全局蒙版
+let globalLoadingWindow = null;
 
 // 请求去重机制  
 const requestTracker = new Map();
@@ -318,6 +321,43 @@ function createMainWindow(token, sendId, userName) {
   getUserCookies(sendId);
 }
 
+function createGlobalLoadingWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  globalLoadingWindow = new BrowserWindow({
+    width,
+    height,
+    x: 0,
+    y: 0,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    focusable: false,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      preload: __dirname + '/preload.js', // 可选，安全考虑
+    }
+  });
+
+  globalLoadingWindow.loadFile('global-loading.html');
+  globalLoadingWindow.setIgnoreMouseEvents(false); // 点击穿透（可选）
+}
+
+// IPC 监听：显示/隐藏全局 loading
+ipcMain.handle('show-global-loading', () => {
+  if (!globalLoadingWindow) createGlobalLoadingWindow();
+  globalLoadingWindow.show();
+});
+
+ipcMain.handle('hide-global-loading', () => {
+  if (globalLoadingWindow) globalLoadingWindow.hide();
+});
 // ============ IPC 处理函数 ============
 
 // 1. 修复 get-cookies

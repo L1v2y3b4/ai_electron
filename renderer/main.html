@@ -1451,14 +1451,18 @@
       });
 
       function showLoading() {
-        const loadingOverlay = document.getElementById("loadingOverlay");
-        loadingOverlay.classList.add("show");
+        // const loadingOverlay = document.getElementById("loadingOverlay");
+        // loadingOverlay.classList.add("show");
+        window.electronAPI.showGlobalLoading()
       }
 
       function hideLoading() {
-        const loadingOverlay = document.getElementById("loadingOverlay");
-        loadingOverlay.classList.remove("show");
+        // const loadingOverlay = document.getElementById("loadingOverlay");
+        // loadingOverlay.classList.remove("show");
+        window.electronAPI.hideGlobalLoading()
       }
+      
+      
 
       function checkLoginStatus(url) {
         console.log("---验证url", url);
