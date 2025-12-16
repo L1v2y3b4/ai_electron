@@ -1115,36 +1115,48 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
   // 如果URL包含智能体相关，尝试设置智能体cookies
   if (data.url.includes('wenxin') || data.url.includes('agents.baidu.com')) {
     try {
-        // 设置cookie前清空缓存
-        console.log('智能体清除缓存');
-        ses.clearCache().then(() => {
-            console.log('清除缓存成功');
-        }).catch(err => {
-            console.error('清除缓存失败', err);
-        });
-
-        ses.clearStorageData({
-            storages: ['cookies', 'localstorage', 'indexdb'],
-            quotas: ['temporary', 'persistent']
-        }).then(() => {
-            console.log('所有存储数据已清除');
-        }).catch(err => {
-            console.error('清除存储数据失败:', err);
-        });
-      // 首先尝试使用全局的agent_cookies
-      const agent_cookies = agent_cookies_accounts[position]
-      if (agent_cookies.length==0){
-        try{
-            console.log("登录后立即点击智能体事件触发,使用传入的cookies")
-            agent_cookies = JSON.parse(JSON.parse(current_cookie))[2]
-        } catch (cookieError) {
-            console.error('设置智能体cookie失败:', cookieError);
-        }
-      }
-      console.log("当前的智能体cookies", agent_cookies.length)
+      console.log('文心智能体：准备注入cookie');
       
-      if (agent_cookies && agent_cookies.length > 0) {
-        for (const j of agent_cookies) {
+      // 文心智能体使用百家号的cookie（共享百度账号系统）
+      let cookiesToInject = [];
+      
+      // 1. 尝试从传入的current_cookie解析
+      if (current_cookie) {
+        try {
+          console.log('尝试解析传入的current_cookie，长度:', current_cookie.length);
+          let parsedCookies = JSON.parse(current_cookie);
+          
+          // 处理多层嵌套的情况
+          if (typeof parsedCookies === 'string') {
+            parsedCookies = JSON.parse(parsedCookies);
+          }
+          
+          // 如果是数组，取第一个元素（通常是百家号cookie）
+          if (Array.isArray(parsedCookies)) {
+            cookiesToInject = Array.isArray(parsedCookies[0]) ? parsedCookies[0] : parsedCookies;
+          } else {
+            cookiesToInject = parsedCookies;
+          }
+          
+          console.log('成功解析cookie，数量:', cookiesToInject.length);
+        } catch (parseError) {
+          console.error('解析current_cookie失败:', parseError);
+        }
+      } else {
+        console.warn('current_cookie为空');
+      }
+      
+      // 2. 如果解析失败或没有cookie，尝试从agent_cookies_accounts获取
+      if (cookiesToInject.length === 0 && agent_cookies_accounts[position]) {
+        console.log('使用agent_cookies_accounts中的cookie');
+        cookiesToInject = agent_cookies_accounts[position];
+      }
+      
+      console.log("准备注入的cookies数量:", cookiesToInject.length)
+      
+      if (cookiesToInject && cookiesToInject.length > 0) {
+        let successCount = 0;
+        for (const j of cookiesToInject) {
           try {
             // 验证并修正domain字段
             let domain = j.domain;
@@ -1166,18 +1178,34 @@ ipcMain.on('open-url-in-new-window', async (event, data) => {
               path: j.path || "/",
               expirationDate: (Date.now() + 1000 * 60 * 60 * 24 * 30) / 1000
             });
+            successCount++;
           } catch (cookieError) {
             console.error('设置智能体cookie失败:', cookieError, '- Cookie:', j.name, 'Domain:', j.domain);
           }
         }
-        console.log('Agent cookies set for partition:', accountPartition);
+        console.log(`文心智能体：成功注入 ${successCount}/${cookiesToInject.length} 个cookie，partition: ${accountPartition}`);
+        
+        // 在窗口标题显示cookie注入状态（用于调试）
+        popupWindow.setTitle(`文心智能体 - 已注入${successCount}个cookie`);
+        
+        // Cookie注入完成后再加载URL
+        popupWindow.loadURL(url);
+      } else {
+        console.warn('文心智能体：没有可用的cookie进行注入，直接加载URL');
+        popupWindow.setTitle('文心智能体 - 无cookie');
+        popupWindow.loadURL(url);
       }
     } catch (e) {
       console.error('Error setting agent cookies:', e);
+      popupWindow.setTitle('文心智能体 - Cookie注入失败');
+      popupWindow.loadURL(url);
     }
+  } else {
+    // 非智能体URL，直接加载
+    popupWindow.setTitle('新窗口');
+    popupWindow.loadURL(url);
   }
-
-  popupWindow.loadURL(url);
+  
   popupWindow.on('closed', () => { });
   if (!app.isPackaged) popupWindow.webContents.openDevTools();
 });

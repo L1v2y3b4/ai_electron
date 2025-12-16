@@ -1090,22 +1090,41 @@
 
     // 判断是否为文心智能体：使用actualType而不是menuId
     if (accountType === 9) {
-      window.parent.postMessage(
-        {
-          type: "openWenxinAuth",
-          accountId: account.serverData
-            ? account.serverData.acc_id
-            : account.id,
-          accountIndex:
-            account.position ||
+      console.log('准备发送openWenxinAuth消息，account.serverData:', account.serverData);
+      
+      const cookiesData = account.serverData ? account.serverData.cookies : null;
+      console.log('Cookies数据类型:', typeof cookiesData);
+      console.log('Cookies数据长度:', cookiesData ? cookiesData.length : 0);
+      console.log('Cookies数据前100字符:', cookiesData ? cookiesData.substring(0, 100) : 'null');
+      
+      console.log("发送文心智能体enterWebview消息给主窗口");
+      
+      // 生成固定的、唯一的账号ID
+      const uniqueAccountId = account.serverData && account.serverData.acc_id 
+        ? `acc_${account.serverData.acc_id}` 
+        : `pending_${account.menuId}_${account.position}`;
+
+      // 准备要发送给主窗口的数据（与百家号相同的格式，使用enterWebview）
+      const messageData = {
+        type: "enterWebview",
+        menuId: account.menuId,  // menuId保持为9
+        accountId: uniqueAccountId,
+        accountIndex: account.position ||
             (account.id.includes("_") ? account.id.split("_")[2] : "1"),
-          url: "https://agents.baidu.com/center",
-          acc_id: account.serverData ? account.serverData.acc_id : null,
-          position: account.position,
-          send_id: account.serverData.send_id,
-          current_cookies: account.serverData.cookies,
-        },
-        "*"
+        acc_id: account.serverData ? account.serverData.acc_id : null,
+        position: account.position,
+        isMain: account.isMain,
+        cookies: account.serverData ? account.serverData.cookies : null,
+        sendId: currentUserData.sendId,
+        actualType: accountType,  // 添加actualType=9用于区分文心智能体
+      };
+
+      window.parent.postMessage(messageData, "*");
+      console.log(
+        "文心智能体消息已发送，accountId:",
+        uniqueAccountId,
+        "position:",
+        account.position
       );
     } else {
       console.log("发送进入webview消息给主窗口");

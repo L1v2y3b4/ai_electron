@@ -1213,9 +1213,14 @@
             (item) => item.id === event.data.menuId
           );
           
-          if (menuItem) {
-            // 获取目标URL
-            let targetUrl;
+          // 获取目标URL
+          let targetUrl;
+          
+          // 文心智能体特殊处理（menuId可能不在navItems中）
+          if (event.data.menuId === 9 || event.data.actualType === 9) {
+            targetUrl = "https://agents.baidu.com/center";
+            console.log('文心智能体，加载智能体中心');
+          } else if (menuItem) {
             if (event.data.menuId === 4) {
               targetUrl = menuItem.url + sendId;
             } else if (event.data.menuId === 8) {
@@ -1223,6 +1228,12 @@
             } else {
               targetUrl = menuItem.url;
             }
+          } else {
+            console.error('未找到对应的menuItem，menuId:', event.data.menuId);
+            return;
+          }
+          
+          if (targetUrl) {
             
             // 实现更健壮的cookie注入逻辑，处理复杂的转义字符和JSON格式问题
             let cookiePromise;
@@ -1437,6 +1448,9 @@
           // 打开文心智能体授权页面
           console.log("智能体新页面收到的消息:", event.data)
           console.log("打开文心智能体授权页面")
+          console.log("current_cookies类型:", typeof event.data.current_cookies)
+          console.log("current_cookies长度:", event.data.current_cookies ? event.data.current_cookies.length : 0)
+          
           window.electronAPI.openUrlInNewWindow({
             url: event.data.url,
             partition: `persist:wenxin_${event.data.accountId}`,
@@ -1444,8 +1458,9 @@
             sendId: event.data.send_id,
             position: event.data.position,
             _type: 1, // 百度系
-            current_cookie: event.data.current_cookies
+            current_cookie: event.data.current_cookies  // 注意：参数名是current_cookie（单数）
           });
+          console.log('已调用openUrlInNewWindow，cookie长度:', event.data.current_cookies ? event.data.current_cookies.length : 0);
           
         }
       });
