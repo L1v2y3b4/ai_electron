@@ -497,6 +497,15 @@
       } else if (event.data.type === "accountAuthorized") {
         // 账号授权成功，刷新账号状态
         console.log("收到账号授权成功消息，刷新账号状态");
+        console.log("授权成功的用户ID:", event.data.userId);
+        
+        // 更新currentUserData.sendId，确保后续API调用有正确的userId
+        if (currentUserData && event.data.userId) {
+          currentUserData.sendId = event.data.userId;
+        } else if (event.data.userId) {
+          currentUserData = { sendId: event.data.userId };
+        }
+        
         debouncedUpdateAccountStatus();
       }
     });

@@ -31,10 +31,10 @@ let agent_cookies_accounts = {1:[],2:[],3:[],4:[],5:[]}
 const loginUrl = 'http://ai.zhongshang114.com';
 // const loginUrl = 'http://39.96.205.150:19020'
 // const loginUrl = 'http://192.168.0.38:9020'
-const checkUrl = "http://47.93.80.212:8000/api";
+// const checkUrl = "http://47.93.80.212:8000/api";
 // const checkUrl = "http://127.0.0.1:8000/api";
 // const checkUrl = "http://60.205.188.121:8000/api"
-// const checkUrl = "http://192.168.0.35:8000/api"
+const checkUrl = "http://192.168.0.35:8000/api"
 
 // 请求去重机制  
 const requestTracker = new Map();
@@ -934,6 +934,13 @@ ipcMain.handle("get-account-cookies", async (event, { userId, type, position, ac
 // 8. 新增 get-account-status
 ipcMain.handle('get-account-status', async (event, { userId, type }) => {
   console.log('获取账号信息参数:', userId, type);
+  
+  // 防护措施：如果userId为undefined，记录错误并返回失败
+  if (!userId) {
+    console.error('获取账号状态失败：userId为undefined');
+    return { success: false, message: '缺少用户ID' };
+  }
+  
   try {
     const response = await axios.get(
       `${checkUrl}/auth/accounts?user_id=${userId}&type_f=${type}`
