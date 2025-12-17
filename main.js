@@ -777,7 +777,7 @@ ipcMain.handle('save_user_cookies', async (event, { currentNavId, cookiesList, t
     // status=1 表示重新授权
     data = {
       'type': currentNavId,
-      'authData': JSON.stringify(cookiesList),
+      'authData': "electron",
       'status': 1,
       'saveType': 1,
       'customerId': sendId,
