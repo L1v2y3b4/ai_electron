@@ -996,6 +996,11 @@
           showSuccessMessage("请先选择账号进入编辑");
           return;
         }
+        // 微信公众号不支持更新授权功能
+        if (currentNavId === 4) {
+          showSuccessMessage("微信公众号不支持更新授权功能");
+          return;
+        }
         updateAuthorization();
       });
 
@@ -1302,7 +1307,7 @@
                             
                             // 尝试找到有效的JSON结束位置（处理可能的截断）
                             try {
-                                cookiesList = JSON.parse(cookieStr);
+                                    cookiesList = JSON.parse(cookieStr);
                                 console.log('首次JSON解析成功');
                             } catch (parseError) {
                                 console.error('首次JSON解析失败，尝试修复格式:', parseError);
@@ -1310,13 +1315,13 @@
                                 // 尝试简化处理：只提取第一个数组元素或使用正则提取cookie数据
                                 // 例如，找到第一个完整的数组对
                                 const arrayMatch = cookieStr.match(/\[\[.*?\]\]/s);
-                                if (arrayMatch) {
+                                    if (arrayMatch) {
                                     console.log('尝试使用正则提取的数组部分进行解析');
                                     cookiesList = JSON.parse(arrayMatch[0]);
                                 } else {
                                     // 最后尝试：直接作为数组处理
                                     console.log('尝试直接作为数组处理');
-                                    cookiesList = [];
+                                cookiesList = [];
                                 }
                             }
                         } else if (Array.isArray(event.data.cookies)) {
