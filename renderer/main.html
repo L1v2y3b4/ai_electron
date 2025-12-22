@@ -596,6 +596,31 @@
         z-index: 1001;
         cursor: pointer;
       }
+      /* 授权提示样式 */
+      .auth-tip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 16px;
+        font-size: 550;
+        color: red;
+        margin-right: 4px;
+      }
+      .tip-text {
+        white-space: nowrap;
+      }
+      .pointing-hand {
+        font-size: 24px;
+        animation: pointRight 1.5s ease-in-out infinite;
+      }
+      @keyframes pointRight {
+        0%, 100% {
+          transform: translateX(0);
+        }
+        50% {
+          transform: translateX(3px);
+        }
+      }
 
       .webview-controls::before {
         content: "";
@@ -698,8 +723,12 @@
       <div class="content-area">
         <div class="view-container">
           <div class="webview-controls">
-            <button class="refresh-btn" id="refreshBtn">刷新页面</button>
+            <div class="auth-tip">
+              <span class="tip-text">建议授权成功后点击</span>
+              <span class="pointing-hand">👉</span>
+            </div>
             <button class="update-auth-btn" id="updateAuthBtn">更新授权</button>
+            <button class="refresh-btn" id="refreshBtn">刷新页面</button>
           </div>
           <div class="loading-overlay" id="loadingOverlay">
             <div class="loading-spinner"></div>
