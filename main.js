@@ -345,18 +345,88 @@ function createGlobalLoadingWindow() {
     }
   });
 
+  // 先设置事件监听器，再加载文件
+  globalLoadingWindow.once('ready-to-show', () => {
+    console.log('全局加载窗口准备就绪');
+  });
+  
+  globalLoadingWindow.once('show', () => {
+    console.log('全局加载窗口已显示');
+  });
+  
+  globalLoadingWindow.on('closed', () => {
+    console.log('全局加载窗口已关闭');
+    globalLoadingWindow = null;
+  });
+  
   globalLoadingWindow.loadFile('global-loading.html');
   globalLoadingWindow.setIgnoreMouseEvents(false); // 点击穿透（可选）
 }
 
 // IPC 监听：显示/隐藏全局 loading
 ipcMain.handle('show-global-loading', () => {
-  if (!globalLoadingWindow) createGlobalLoadingWindow();
-  globalLoadingWindow.show();
+  try {
+    console.log('收到显示全局加载窗口请求');
+    if (!globalLoadingWindow || globalLoadingWindow.isDestroyed()) {
+      console.log('创建新的全局加载窗口');
+      createGlobalLoadingWindow();
+      // 等待窗口加载完成后再显示
+      if (globalLoadingWindow) {
+        globalLoadingWindow.once('ready-to-show', () => {
+          console.log('窗口准备就绪，现在显示');
+          if (globalLoadingWindow && !globalLoadingWindow.isDestroyed()) {
+            globalLoadingWindow.show();
+            globalLoadingWindow.setAlwaysOnTop(true, 'screen-saver');
+            // 确保窗口可见
+            globalLoadingWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+          }
+        });
+      }
+    } else {
+      // 窗口已存在，直接显示
+      console.log('窗口已存在，直接显示');
+      if (!globalLoadingWindow.isDestroyed()) {
+        // 检查窗口是否已经加载完成
+        if (globalLoadingWindow.webContents && !globalLoadingWindow.webContents.isLoading()) {
+          console.log('窗口已加载完成，立即显示');
+          globalLoadingWindow.show();
+          globalLoadingWindow.setAlwaysOnTop(true, 'screen-saver');
+          globalLoadingWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        } else {
+          console.log('窗口正在加载，等待加载完成');
+          globalLoadingWindow.once('ready-to-show', () => {
+            console.log('窗口准备就绪，现在显示');
+            if (globalLoadingWindow && !globalLoadingWindow.isDestroyed()) {
+              globalLoadingWindow.show();
+              globalLoadingWindow.setAlwaysOnTop(true, 'screen-saver');
+              globalLoadingWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+            }
+          });
+        }
+        // 备用方案：延迟显示，确保窗口能够显示
+        setTimeout(() => {
+          if (globalLoadingWindow && !globalLoadingWindow.isDestroyed() && !globalLoadingWindow.isVisible()) {
+            console.log('延迟显示窗口（备用方案）');
+            globalLoadingWindow.show();
+            globalLoadingWindow.setAlwaysOnTop(true, 'screen-saver');
+            globalLoadingWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+          }
+        }, 300);
+      }
+    }
+  } catch (error) {
+    console.error('显示全局加载窗口失败:', error);
+  }
 });
 
 ipcMain.handle('hide-global-loading', () => {
-  if (globalLoadingWindow) globalLoadingWindow.hide();
+  try {
+    if (globalLoadingWindow && !globalLoadingWindow.isDestroyed()) {
+      globalLoadingWindow.hide();
+    }
+  } catch (error) {
+    console.error('隐藏全局加载窗口失败:', error);
+  }
 });
 // ============ IPC 处理函数 ============
 
