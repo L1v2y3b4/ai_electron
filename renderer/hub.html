@@ -376,6 +376,9 @@
       .btn-color-wenxin{
         background: #3c43ff !important;
       }
+      .btn-color-tou{
+        background: #fd7f70 !important;
+      }
       /* 平台专属卡片背景 */
       .card-bg-baijia {
         background: url("./images/baibg.png");
@@ -399,6 +402,11 @@
       }
       .card-bg-tencent {
         background: url("./images/tengbg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-tou{
+        background: url("./images/toubg.png");
         background-repeat: no-repeat;
         background-size: 100% 100%;
       }
@@ -452,6 +460,7 @@
       8: "btn-color-163", // 网易 - #FB3B3B（固定）
       4: "btn-color-wechat", // 微信公众号 - #6FD169（固定）
       9: 'btn-color-wenxin',// 文心智能体 - #3c43ff （固定）
+      3: "btn-color-tou",
     };
 
       // 平台卡片背景映射表
@@ -462,6 +471,7 @@
         8: "card-bg-163", // 网易 - wangbg.png
         6: "card-bg-tencent", // 腾讯 - tengbg.png
         9: "card-bg-wenxin",
+        3: "card-bg-tou",
       };
 
     window.addEventListener("message", async (event) => {

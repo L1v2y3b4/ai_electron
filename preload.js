@@ -53,5 +53,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   showGlobalLoading: () => ipcRenderer.invoke('show-global-loading'),
   hideGlobalLoading: () => ipcRenderer.invoke('hide-global-loading')
-
+  
 });

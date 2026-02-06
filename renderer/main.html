@@ -815,7 +815,7 @@
           url: "https://mp.toutiao.com/auth/page/login",
           icon: "📰",
           flag: false,
-          show: false,
+          show: true,
         },
         {
           id: 5,
@@ -909,7 +909,7 @@
         }
 
         navItems.forEach((item, index) => {
-          if (item.id != 5 && item.id != 3 && item.show) {
+          if (item.id != 5 && item.show) {
             const navItem = document.createElement("div");
             navItem.className = "nav-item";
             if (item.id === currentNavId) navItem.classList.add("active");
