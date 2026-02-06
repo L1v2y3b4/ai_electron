@@ -817,7 +817,7 @@
 				const currentUrl = webview.getURL();
 				const url = new URL(currentUrl);
 				// const domain = url.hostname;
-				console.log('-----', url)
+				console.log('当前网址:', url)
 				// console.log(currentUrl)
 				if (currentUrl.includes('https://mp.toutiao.com/profile_v4/index') || '/profile_v4/index'.includes(currentUrl)) {
 					checkLoginStatus(currentUrl);
@@ -994,7 +994,12 @@
                 res.then((result) => {
                     const webview = document.getElementById('browserView');
                     cookiesList.push(result);
-                    // console.log('当前页面的所有cookie:', cookiesList);
+                    // console.log('%c反向更新文心智能体的cookie', 'color:green;');
+                    // window.electronAPI.setAgentCookies({
+                    //     cookies: result,
+                    //     sendId: sendId,
+
+                    // })
                     //去发送后端
                     // console.log(currentNavId)
                     // const result1 = window.electronAPI.saveUserCookies({ currentNavId, cookiesList, token, sendId });
