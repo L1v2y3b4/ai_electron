@@ -29,7 +29,7 @@ app.commandLine.appendSwitch('--disk-cache-dir', chromiumCachePath);
 let agent_cookies = [];
 let agent_cookies_accounts = {1:[],2:[],3:[],4:[],5:[]}
 const loginUrl = 'http://ai.zhongshang114.com';
-// const loginUrl = 'http://39.96.205.150:19020'
+// const loginUrl = 'http://192.168.0.69:9020'
 // const loginUrl = 'http://192.168.0.38:9020'
 const checkUrl = "http://47.93.80.212:8000/api";
 // const checkUrl = "http://127.0.0.1:8000/api";
@@ -348,6 +348,7 @@ function createGlobalLoadingWindow() {
   globalLoadingWindow.loadFile('global-loading.html');
   globalLoadingWindow.setIgnoreMouseEvents(false); // 点击穿透（可选）
 }
+
 
 // IPC 监听：显示/隐藏全局 loading
 ipcMain.handle('show-global-loading', () => {
@@ -1292,6 +1293,7 @@ ipcMain.handle('login', async (event, credentials) => {
       { headers }
     );
     const result = response.data;
+    console.log('登录响应数据:', result);
     
     if (result.code === 200) {
       const val = result.data
