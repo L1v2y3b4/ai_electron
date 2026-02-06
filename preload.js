@@ -12,7 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setUserData: (callback) => ipcRenderer.on('set-user-data', callback),
   // getCookies: (domain) => ipcRenderer.invoke('get-cookies', domain),
   setCookies: (params) => ipcRenderer.invoke('set-cookies', params),
+  clearCookies: (params) => ipcRenderer.invoke('clear-cookies', params),
+  getAccountCookies: (params) => ipcRenderer.invoke('get-account-cookies', params),
   getAgentCookies: () => ipcRenderer.invoke('get-agent-cookies'),
+  setAgentCookies: () => ipcRenderer.invoke('set-agent-cookies'),
   // getCookies: (domain) => ipcRenderer.invoke('get-cookies', domain),
   getCookies: (domain, partition = null) => partition 
   ? ipcRenderer.invoke('get-cookies', domain, partition)
@@ -46,6 +49,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 修复：添加 enterWebview 函数
   enterWebview: (data) => ipcRenderer.send('enter-webview', data),
-  checkBlueVPackage: (userId) => ipcRenderer.invoke('check-bluev-package', userId)
+  checkBlueVPackage: (userId) => ipcRenderer.invoke('check-bluev-package', userId),
 
+  showGlobalLoading: () => ipcRenderer.invoke('show-global-loading'),
+  hideGlobalLoading: () => ipcRenderer.invoke('hide-global-loading')
+  
 });

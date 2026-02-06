@@ -376,6 +376,9 @@
       .btn-color-wenxin{
         background: #3c43ff !important;
       }
+      .btn-color-tou{
+        background: #fd7f70 !important;
+      }
       /* 平台专属卡片背景 */
       .card-bg-baijia {
         background: url("./images/baibg.png");
@@ -399,6 +402,11 @@
       }
       .card-bg-tencent {
         background: url("./images/tengbg.png");
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .card-bg-tou{
+        background: url("./images/toubg.png");
         background-repeat: no-repeat;
         background-size: 100% 100%;
       }
@@ -452,6 +460,7 @@
       8: "btn-color-163", // 网易 - #FB3B3B（固定）
       4: "btn-color-wechat", // 微信公众号 - #6FD169（固定）
       9: 'btn-color-wenxin',// 文心智能体 - #3c43ff （固定）
+      3: "btn-color-tou",
     };
 
       // 平台卡片背景映射表
@@ -462,9 +471,10 @@
         8: "card-bg-163", // 网易 - wangbg.png
         6: "card-bg-tencent", // 腾讯 - tengbg.png
         9: "card-bg-wenxin",
+        3: "card-bg-tou",
       };
 
-    window.addEventListener("message", (event) => {
+    window.addEventListener("message", async (event) => {
       console.log("接收到消息", event.data);
       if (event.data.type === "selectMenu") {
         currentMenuId = event.data.menuId;
@@ -479,8 +489,18 @@
             accounts[currentUserData.sendId] = {};
           }
           // 检查用户是否为蓝V套餐用户
-          // showMultipleAccounts =  checkBlueVPackageStatus(currentUserData.sendId);
-        }
+        //   showMultipleAccounts =  checkBlueVPackage(currentUserData.sendId);
+        // }
+            // 安全地访问 electronAPI（兼容 iframe 环境）
+            const electronAPI = window.electronAPI || (window.parent && window.parent.electronAPI);
+            if (electronAPI && typeof electronAPI.checkBlueVPackage === "function") {
+              blue_ensure = await electronAPI.checkBlueVPackage(currentUserData.sendId);
+              showMultipleAccounts = blue_ensure.isBlueVPackage;
+            } else {
+              showMultipleAccounts = false; // 默认非蓝V用户
+            }
+          }
+        console.log("当前用户是否蓝V", showMultipleAccounts);
         console.log("选择菜单", currentMenuId, "实际类型", actualType, "导航项数量", navItems.length);
         renderAccounts();
         setTimeout(debouncedUpdateAccountStatus, 100);
@@ -511,8 +531,10 @@
 
         // 使用actualType作为接口调用的type参数
         // 如果actualType存在（如文心智能体），使用actualType；否则使用menuId
-        const platformType = actualType !== null ? actualType : currentMenuId;
-
+        let platformType = actualType !== null ? actualType : currentMenuId;
+        if (platformType === 9){
+            platformType = 1
+        }
         console.log(
           "正在调用 getAccountStatus 当前 userId:",
           currentUserData.sendId,
@@ -521,14 +543,14 @@
           "actualType:",
           actualType,
           "调用接口type:",
-          platformType
+          platformType,
         );
         const result = await electronAPI.getAccountStatus({
           userId: currentUserData.sendId,
           type: platformType,
         });
 
-        console.log("调用getAccountStatus 结果为:", result);
+        console.log("%c调用getAccountStatus 结果为:",'color: red; font-weight: bold;', result);
         console.log("服务器返回的账号列表:", result.accounts);
 
         if (result.success) {
@@ -548,145 +570,156 @@
               const posB = b.position || 0;
               return posA - posB;
             });
-
+            console.log("sortedServerAccounts:", sortedServerAccounts)
+            console.log("currentMenuId:", currentMenuId)
+            console.log("accounts[currentUserData.sendId][currentMenuId]: ", accounts[currentUserData.sendId][currentMenuId])
             accounts[currentUserData.sendId][currentMenuId].forEach(
               (account, index) => {
-                const position = account.position || index + 1;
+                console.log("accounts[currentUserData.sendId][currentMenuId] account:", account)
+                const localPosition = account.position;
                 let serverAccount = null;
 
-                // 对于百家号和文心智能体，需要考虑is_main字段
-                // 判断是否为百家号或文心智能体：menuId为1且actualType为9表示文心智能体，menuId为1且actualType不为9表示百家号
-                if (currentMenuId === 1) {
-                  // 统一处理 is_main：可能是 1/0 或 true/false
-                  const normalizeIsMain = (val) => {
-                    if (val === true || val === 1) return 1;
-                    if (val === false || val === 0) return 0;
-                    return 0;
-                  };
-
-                  const accountIsMain = normalizeIsMain(account.isMain);
-
-                  // 首先尝试精确匹配：position 和 is_main 都匹配
-                  serverAccount = sortedServerAccounts.find((acc) => {
-                    const accIsMain = normalizeIsMain(acc.is_main);
-                    const accPosition = acc.position || 0;
-                    const accId = acc.acc_id;
-
-                    return (
-                      accPosition === position &&
-                      accIsMain === accountIsMain &&
-                      accId &&
-                      !usedServerAccountIds.has(accId)
-                    );
-                  });
-
-                  // 如果没有精确匹配，尝试仅匹配 position（但优先匹配主账号）
-                  if (!serverAccount) {
-                    // 先尝试匹配主账号
-                    if (position === 1) {
-                      serverAccount = sortedServerAccounts.find((acc) => {
-                        const accIsMain = normalizeIsMain(acc.is_main);
-                        const accPosition = acc.position || 0;
-                        const accId = acc.acc_id;
-
-                        return (
-                          accPosition === position &&
-                          accIsMain === 1 &&
-                          accId &&
-                          !usedServerAccountIds.has(accId)
-                        );
-                      });
-                    }
-
-                    // 如果还没找到，匹配任意 position 相同的账号
-                    if (!serverAccount) {
-                      serverAccount = sortedServerAccounts.find((acc) => {
-                        const accPosition = acc.position || 0;
-                        const accId = acc.acc_id;
-
-                        return (
-                          accPosition === position &&
-                          accId &&
-                          !usedServerAccountIds.has(accId)
-                        );
-                      });
-                    }
-                  }
-                } else {
-                  // 其他平台只需匹配 position
-                  serverAccount = sortedServerAccounts.find((acc) => {
-                    const accPosition = acc.position || 0;
-                    const accId = acc.acc_id;
-
-                    return (
-                      accPosition === position &&
-                      accId &&
-                      !usedServerAccountIds.has(accId)
-                    );
-                  });
+                // 定义账号状态：
+                // - 从未绑定过：status为pending，且没有serverData
+                // - 已绑定：status为active，有serverData
+                // - 已解绑：status为pending，但有过绑定历史（我们需要追踪这个状态）
+                
+                // 添加一个新属性来追踪账号是否曾经绑定过
+                if (!account.hasEverBound) {
+                  account.hasEverBound = account.serverData && account.serverData.acc_id ? true : false;
+                }
+                
+                // 1. 优先使用 acc_id 进行精确匹配（如果本地账号已绑定）
+                if (account.serverData && account.serverData.acc_id) {
+                  serverAccount = sortedServerAccounts.find(acc => 
+                    acc.acc_id === account.serverData.acc_id && 
+                    !usedServerAccountIds.has(acc.acc_id)
+                  );
                 }
 
-                console.log(
-                  `位置 ${position} 的账号匹配结果:`,
-                  serverAccount
-                );
+                // 2. 如果没有通过 acc_id 匹配到，再检查是否可以按 position 匹配
+                if (!serverAccount) {
+                  // 检查服务器返回的所有acc_id，用于后续判断
+                  const allServerAccIds = new Set();
+                  sortedServerAccounts.forEach(acc => {
+                    if (acc.acc_id) {
+                      allServerAccIds.add(acc.acc_id);
+                    }
+                  });
 
-                if (serverAccount) {
-                  // 标记这个服务器账号已被使用
-                  if (serverAccount.acc_id) {
-                    usedServerAccountIds.add(serverAccount.acc_id);
+                  // 核心逻辑：确保所有账号解绑后位置都不会被其他账号填充
+                  // 允许匹配的情况：
+                  // 1. 从未绑定过的账号（首次加载） hasEverBound 为false
+                  // 2. 已绑定账号：acc_id在服务器上存在
+                  const hasBoundAccId = account.serverData && account.serverData.acc_id;
+                  const accIdExistsOnServer = hasBoundAccId ? allServerAccIds.has(account.serverData.acc_id) : false;
+                  
+                  // 只有从未绑定过的账号，或者已绑定且acc_id存在的账号，才允许匹配
+                  // 一旦曾经绑定过又解绑的账号（hasEverBound为true且没有serverData），永远不再匹配其他账号
+                  console.log("%chasBoundAccId:",'color:red;',hasBoundAccId)
+                  if ((!account.hasEverBound && !hasBoundAccId) || (hasBoundAccId)) {
+                    // 主账号位置（position=1）只能匹配服务器返回的is_main=1或true的账号
+                    console.log('%c其他位置按position匹配服务器账号', 'color:blue;', localPosition,currentMenuId)
+                    if (localPosition === 1 && currentMenuId === 1) {
+                      serverAccount = sortedServerAccounts.find((acc) => {
+                        const accId = acc.acc_id;
+                        return (
+                          (acc.is_main === 1 || acc.is_main === true) &&
+                          accId !== null &&
+                          accId !== undefined &&
+                          !usedServerAccountIds.has(accId)
+                        );
+                      });
+                    } else {
+                      console.log('%c其他位置按position匹配服务器账号', 'color:blue;')
+                      serverAccount = sortedServerAccounts.find((acc) => {
+                        const accId = acc.acc_id;
+                        // 只匹配有acc_id的账号，避免匹配到空账号
+                        return (
+                          acc.position === localPosition &&
+                          accId !== null &&
+                          accId !== undefined &&
+                          !usedServerAccountIds.has(accId)
+                        );
+                      });
+                    }
                   }
+                }
+                
+                // 更新hasEverBound属性：如果匹配到了serverAccount，说明已经绑定过
+                // if (serverAccount && serverAccount.acc_id) {
+                //   account.hasEverBound = true;
+                // }
 
-                  console.log(
-                    `服务器账号数据 (position ${position}):`,
-                    JSON.stringify(serverAccount, null, 2)
-                  );
-                  console.log(
-                    `userData 存在:`,
-                    !!serverAccount.userData,
-                    "userData 内容:",
-                    serverAccount.userData
-                  );
+                console.log(`%c位置 ${localPosition} 的账号匹配结果:`,'color:green;');
+                console.log(serverAccount)
 
-                  const newStatus =
-                    serverAccount.acc_id !== null &&
-                      serverAccount.acc_id !== undefined
-                      ? "active"
-                      : "pending";
+                const newStatus = serverAccount ? 
+                  (serverAccount.acc_id !== null && serverAccount.acc_id !== undefined ? "active" : "pending") : 
+                  "pending";
 
-                  // 检查是否需要更新
-                  const serverDataChanged =
-                    !account.serverData ||
-                    account.serverData.acc_id !== serverAccount.acc_id ||
-                    JSON.stringify(account.serverData) !==
-                    JSON.stringify(serverAccount);
+                // 强制保留本地固定位置，忽略服务器返回的position
+                const originalPosition = account.position;
+                account.position = localPosition;
+                
+                // 强制基于本地position设置isMain，不受服务器is_main影响
+                const originalIsMain = account.isMain;
+                account.isMain = currentMenuId === 1 ? (localPosition === 1 ? 1 : 0) : 0;
 
-                  if (account.status !== newStatus || serverDataChanged) {
-                    account.status = newStatus;
+                let serverDataChanged = false;
+                console.log("%cserverAccount: ",'color:red;', serverAccount)
+                if (serverAccount) {
+                    // 标记这个服务器账号已被使用
+                    if (serverAccount.acc_id) {
+                      usedServerAccountIds.add(serverAccount.acc_id);
+                    }
+
+                    console.log(
+                      `服务器账号数据 (position ${localPosition}):`,
+                    //   JSON.stringify(serverAccount, null, 2)
+                    serverAccount
+                    );
+                    console.log(
+                      `userData 存在:`,
+                      !!serverAccount.userData,
+                      "userData 内容:",
+                      serverAccount.userData
+                    );
                     account.serverData = serverAccount;
                     // 更新账号名称（如果服务器有返回）
                     if (
-                      serverAccount.userData &&
-                      serverAccount.userData.nikeName
+                        serverAccount.userData &&
+                        serverAccount.userData.nikeName
                     ) {
-                      account.name = serverAccount.userData.nikeName;
+                        account.name = serverAccount.userData.nikeName;
                     }
-                    hasChanges = true;
-                    console.log(
-                      `更新账户 ${account.id} (position: ${position})，服务器账号ID: ${serverAccount.acc_id}`
-                    );
-                  }
                 } else {
-                  // 如果没有匹配到服务器账号，且当前账号状态不是 pending，则重置
-                  if (account.status !== "pending") {
-                    account.status = "pending";
+                  // 如果没有匹配到服务器账号，检查serverData是否需要清空
+                  if (account.serverData) {
                     delete account.serverData;
-                    hasChanges = true;
-                    console.log(
-                      `重置账户 ${account.id} (position: ${position}) 为 pending 状态`
-                    );
+                    serverDataChanged = true;
                   }
                 }
+
+                // ————————检查是否需要更新：状态变化、serverData变化、position变化或isMain变化
+                // [fix]每次都更新
+                const positionChanged = originalPosition !== account.position;
+                const isMainChanged = originalIsMain !== account.isMain;
+                
+                // if (account.status !== newStatus || serverDataChanged || positionChanged || isMainChanged) {
+                  account.status = newStatus;
+                  hasChanges = true;
+                  
+                //   if (serverAccount) {
+                //     console.log(
+                //       `更新账户 ${account.id} (position: ${localPosition})，服务器账号ID: ${serverAccount.acc_id}，isMain: ${account.isMain}`
+                //     );
+                //   } else {
+                //     console.log(
+                //       `重置账户 ${account.id} (position: ${localPosition}) 为 pending 状态，isMain: ${account.isMain}`
+                //     );
+                //   }
+                // }
               }
             );
 
@@ -730,8 +763,8 @@
       console.log("调用了renderAccounts 用户ID为:", currentMenuId);
       const accountsGrid = document.getElementById("accountsGrid");
 
-      console.log("账户网格元素:", accountsGrid);
-      console.log("账户父级元素:", accountsGrid?.parentElement);
+    //   console.log("账户网格元素:", accountsGrid);
+    //   console.log("账户父级元素:", accountsGrid?.parentElement);
 
       if (
         currentMenuId === null ||
@@ -751,71 +784,7 @@
 
       // 文心智能体受 showMultipleAccounts 控制
       // 判断是否为文心智能体：actualType为9表示文心智能体
-      if (actualType === 9) {
-        if (showMultipleAccounts) {
-          // 生成5个固定账号
-          accounts[currentUserData.sendId][currentMenuId] = [
-            {
-              id: "wenxin_1",
-              name: "文心智能体账号1",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 1,
-            },
-            {
-              id: "wenxin_2",
-              name: "文心智能体账号2",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 2,
-            },
-            {
-              id: "wenxin_3",
-              name: "文心智能体账号3",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 3,
-            },
-            {
-              id: "wenxin_4",
-              name: "文心智能体账号4",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 4,
-            },
-            {
-              id: "wenxin_5",
-              name: "文心智能体账号5",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 5,
-            },
-          ];
-        } else {
-          // 当 showMultipleAccounts 为 false 时，创建一个默认账号
-          accounts[currentUserData.sendId][currentMenuId] = [
-            {
-              id: "wenxin_default",
-              name: "文心智能体账号",
-              icon: "🤖",
-              status: "pending",
-              menuId: 1,
-              actualType: 9, // 保存实际类型
-              position: 1,
-            },
-          ];
-        }
-      }
+      console.log("检查文心智能体", actualType)
 
       // 查找对应的菜单项
       const menuItem = navItems.find((item) => item.id === currentMenuId);
@@ -833,12 +802,14 @@
         accounts[currentUserData.sendId][currentMenuId] = [];
         // 确定需要创建的账号数量：百家号和文心智能体创建5个，其他平台创建1个
         // 判断是否为百家号或文心智能体：menuId为1表示百家号或文心智能体
+        console.log("showMultipleAccounts:", showMultipleAccounts)
+        console.log('%ccurrentMenuId', 'color: green;', currentMenuId)
         const accountCount =
-          currentMenuId === 1 && showMultipleAccounts
+          [1, 9].includes(currentMenuId) && showMultipleAccounts
             ? 5
             : 1;
 
-        // 创建对应数量的未绑定账号
+        // 创建对应数量的未绑定账号，每个账号分配唯一固定的position
         for (let i = 1; i <= accountCount; i++) {
           accounts[currentUserData.sendId][currentMenuId].push({
             id: "pending_" + currentMenuId + "_" + i,
@@ -847,15 +818,25 @@
             status: "pending", // 未绑定状态
             menuId: currentMenuId,
             actualType: actualType, // 保存实际类型，用于区分百家号和文心智能体
-            position: i,
+            position: i, // 固定position，创建时分配，永不改变
             isMain:
-              currentMenuId === 1
+              [1, 9].includes(currentMenuId)
                 ? i === 1
                   ? 1
                   : 0
                 : 0, // 主账号标识（百家号和文心智能体都使用menuId=1）
           });
         }
+      } else {
+        // 确保现有账号都有固定的position和正确的isMain值
+        accounts[currentUserData.sendId][currentMenuId].forEach((account, index) => {
+          if (!account.position) {
+            // 如果账号没有position，分配一个基于索引的固定position
+            account.position = index + 1;
+          }
+          // 确保isMain值正确：百家号/文心智能体的第一个账号（position=1）isMain=1，其他为0
+          account.isMain = currentMenuId === 1 ? (account.position === 1 ? 1 : 0) : 0;
+        });
       }
 
       const menuAccounts = accounts[currentUserData.sendId][currentMenuId];
@@ -864,7 +845,7 @@
 
       accountsGrid.innerHTML = "";
       accountsGrid.style.display = "grid";
-      console.log("设置为网格显示");
+    //   console.log("设置为网格显示");
 
       if (menuAccounts.length > 0) {
         // 按照 position 字段排序账号列表
@@ -876,13 +857,13 @@
         });
 
         menuAccounts.forEach((account, index) => {
-          console.log("为账户信息创建卡片", index, ":", account);
+        //   console.log("为账户信息创建卡片", index, ":", account);
           const card = createAccountCard(account, menuItem);
           accountsGrid.appendChild(card);
-          console.log(
-            "账户卡片已添加，当前账户数量：",
-            accountsGrid.children.length
-          );
+        //   console.log(
+        //     "账户卡片已添加，当前账户数量：",
+        //     accountsGrid.children.length
+        //   );
         });
       } else {
         console.log("没有账户信息");
@@ -898,8 +879,8 @@
     }
 
     function createAccountCard(account, menuItem) {
-  console.log("创建账号卡片");
-  console.log("账户数据为:", account);
+//   console.log("创建账号卡片");
+//   console.log("账户数据为:", account);
   
   // 在函数顶部统一声明 accountType，用于区分文心智能体和百家号
   // 如果是文心智能体（actualType为9），使用文心智能体的类型；否则使用menuId
@@ -1104,7 +1085,10 @@
   enterBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     console.log("点击了网格元素，进入网页", account);
-    console.log("账号的 serverData:", account.serverData);
+    console.log("%c账号实际登录信息 serverData:", 'color:green;');
+    console.log(account.serverData)
+    console.log('%c是否为文心智能体', 'color:green', accountType)
+    
 
     window.currentAccountId = account.serverData
       ? account.serverData.acc_id
@@ -1116,20 +1100,41 @@
 
     // 判断是否为文心智能体：使用actualType而不是menuId
     if (accountType === 9) {
-      window.parent.postMessage(
-        {
-          type: "openWenxinAuth",
-          accountId: account.serverData
-            ? account.serverData.acc_id
-            : account.id,
-          accountIndex:
-            account.position ||
+      console.log('准备发送openWenxinAuth消息，account.serverData:', account.serverData);
+      
+      const cookiesData = account.serverData ? account.serverData.cookies : null;
+      console.log('Cookies数据类型:', typeof cookiesData);
+      console.log('Cookies数据长度:', cookiesData ? cookiesData.length : 0);
+      console.log('Cookies数据前100字符:', cookiesData ? cookiesData.substring(0, 100) : 'null');
+      
+      console.log("发送文心智能体enterWebview消息给主窗口");
+      
+      // 生成固定的、唯一的账号ID
+      const uniqueAccountId = account.serverData && account.serverData.acc_id 
+        ? `acc_${account.serverData.acc_id}` 
+        : `pending_${account.menuId}_${account.position}`;
+
+      // 准备要发送给主窗口的数据（与百家号相同的格式，使用enterWebview）
+      const messageData = {
+        type: "enterWebview",
+        menuId: account.menuId,  // menuId保持为9
+        accountId: uniqueAccountId,
+        accountIndex: account.position ||
             (account.id.includes("_") ? account.id.split("_")[2] : "1"),
-          url: "https://agents.baidu.com/center",
-          acc_id: account.serverData ? account.serverData.acc_id : null,
-          position: account.position,
-        },
-        "*"
+        acc_id: account.serverData ? account.serverData.acc_id : null,
+        position: account.position,
+        isMain: account.isMain,
+        cookies: account.serverData ? account.serverData.cookies : null,
+        sendId: currentUserData.sendId,
+        actualType: accountType,  // 添加actualType=9用于区分文心智能体
+      };
+
+      window.parent.postMessage(messageData, "*");
+      console.log(
+        "文心智能体消息已发送，accountId:",
+        uniqueAccountId,
+        "position:",
+        account.position
       );
     } else {
       console.log("发送进入webview消息给主窗口");
@@ -1137,82 +1142,43 @@
         window.electronAPI ||
         (window.parent && window.parent.electronAPI);
 
-      const uniqueAccountId =
-        account.serverData && account.serverData.acc_id
-          ? `acc_${account.serverData.acc_id}_pos_${account.position}`
-          : `pending_${account.menuId}_${account.position}`;
+      // 生成固定的、唯一的账号ID，确保每个账号使用固定的partition
+      // 对于已授权账号，只使用acc_id，不使用动态变化的position
+      // 对于未授权账号，使用 pending_${menuId}_${position} 格式
+      const uniqueAccountId = account.serverData && account.serverData.acc_id 
+        ? `acc_${account.serverData.acc_id}` 
+        : `pending_${account.menuId}_${account.position}`;
 
       const accountIndex =
         account.position ||
         (account.id.includes("_") ? account.id.split("_")[2] : "1");
 
-      if (account.status === "pending") {
-        window.parent.postMessage(
-          {
-            type: "enterWebview",
-            menuId: account.menuId,
-            accountId: uniqueAccountId,
-            accountIndex: accountIndex,
-            acc_id: account.serverData ? account.serverData.acc_id : null,
-            position: account.position,
-            hasDefaultCookies: false,
-          },
-          "*"
-        );
-      } else if (
-        electronAPI &&
-        typeof electronAPI.getCookies === "function"
-      ) {
+      // 准备要发送给主窗口的数据
+      const messageData = {
+        type: "enterWebview",
+        menuId: account.menuId,
+        accountId: uniqueAccountId,
+        accountIndex: accountIndex,
+        acc_id: account.serverData ? account.serverData.acc_id : null,
+        position: account.position,
+        isMain: account.isMain,
+        cookies: account.serverData ? account.serverData.cookies : null,
+      };
+
+      // 对于已授权账号，检查是否有默认cookies
+      if (account.status !== "pending" && electronAPI && typeof electronAPI.getCookies === "function") {
         try {
           const defaultCookies = await electronAPI.getCookies(
             getDomainByMenuId(account.menuId),
             "persist:zhongshang"
           );
-
-          window.parent.postMessage(
-            {
-              type: "enterWebview",
-              menuId: account.menuId,
-              accountId: uniqueAccountId,
-              accountIndex: accountIndex,
-              acc_id: account.serverData
-                ? account.serverData.acc_id
-                : null,
-              position: account.position,
-              hasDefaultCookies:
-                defaultCookies && defaultCookies.length > 0,
-            },
-            "*"
-          );
+          messageData.hasDefaultCookies = defaultCookies && defaultCookies.length > 0;
         } catch (error) {
           console.error("检查cookie时出错:", error);
-          window.parent.postMessage(
-            {
-              type: "enterWebview",
-              menuId: account.menuId,
-              accountId: uniqueAccountId,
-              accountIndex: accountIndex,
-              acc_id: account.serverData
-                ? account.serverData.acc_id
-                : null,
-              position: account.position,
-            },
-            "*"
-          );
         }
-      } else {
-        window.parent.postMessage(
-          {
-            type: "enterWebview",
-            menuId: account.menuId,
-            accountId: uniqueAccountId,
-            accountIndex: accountIndex,
-            acc_id: account.serverData ? account.serverData.acc_id : null,
-            position: account.position,
-          },
-          "*"
-        );
       }
+
+      window.parent.postMessage(messageData, "*");
       console.log(
         "消息已发送，accountId:",
         uniqueAccountId,
@@ -1355,6 +1321,11 @@
           .unbindAccount({
             accountId: realAccountId,
             userId: currentUserData.sendId,
+            currentNavId: currentMenuId,
+            type: currentMenuId,
+            token: currentUserData.token,
+            isMain: foundAccount.isMain || foundAccount.serverData?.is_main || 0,
+            position: foundAccount.position || 0
           })
           .then((result) => {
             // 移除加载状态
@@ -1367,18 +1338,22 @@
               if (foundAccount) {
                 foundAccount.status = "pending";
                 delete foundAccount.serverData;
+                // 重置hasEverBound属性，允许重新授权时匹配新的服务器数据
+                foundAccount.hasEverBound = false;
+                // 确保isMain值正确：百家号/文心智能体的第一个账号（position=1）isMain=1，其他为0
+                foundAccount.isMain = currentMenuId === 1 ? (foundAccount.position === 1 ? 1 : 0) : 0;
 
                 // 恢复账号名称为默认名称
                 const menuItem = navItems.find(
                   (item) => item.id === currentMenuId
                 );
                 if (menuItem) {
-                  foundAccount.name =
+                  foundAccount.name = 
                     menuItem.name + "账号" + foundAccount.position;
                 }
-                // 生成唯一的accountId用于清除cookie
-                const uniqueAccountId = realAccountId
-                  ? `acc_${realAccountId}_pos_${foundAccount.position}`
+                // 生成唯一的accountId用于清除cookie，使用与创建时相同的固定格式
+                const uniqueAccountId = currentUserData.acc_id 
+                  ? `acc_${currentUserData.acc_id}` 
                   : `pending_${currentMenuId}_${foundAccount.position}`;
 
                 // 清除该账号的cookie
@@ -1524,14 +1499,23 @@
       const menuItem = navItems.find((item) => item.id === currentMenuId);
       if (!menuItem) return;
 
+      // 找到下一个可用的位置，而不是简单地在数组长度上加1
+      const currentAccounts = accounts[currentUserData.sendId][currentMenuId] || [];
+      let nextPosition = 1;
+      const existingPositions = new Set(currentAccounts.map(account => account.position));
+      
+      // 查找最小的未使用位置
+      while (existingPositions.has(nextPosition)) {
+        nextPosition++;
+      }
+      
       const newAccount = {
         id: "temp_" + Date.now(),
         name: menuItem.name + "新账号",
         icon: menuItem.icon,
         status: "pending",
         menuId: currentMenuId,
-        position:
-          (accounts[currentUserData.sendId][currentMenuId] || []).length + 1,
+        position: nextPosition,
         isMain: 0,
       };
 
